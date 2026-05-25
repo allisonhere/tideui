@@ -1,12 +1,21 @@
 # tideui
 
-`tideui` is a reusable Bubble Tea/Lipgloss presentation toolkit extracted from
-TideMail's themeable terminal interface. It renders application-provided content
-inside themed pane shells, status bars, and overlays.
+`tideui` is a reusable Bubble Tea/Lipgloss presentation toolkit based on the
+themeable terminal interface originally built for
+[Tide](https://github.com/allisonhere/tide) and later refined in TideMail. It
+renders application-provided content inside themed pane shells, status bars,
+and overlays.
 
 The package is intentionally view-oriented. Applications retain ownership of
 their Bubble Tea model, commands, key routing, persistence, and viewport state;
 the optional picker handles its own navigation once an application opens it.
+
+## Lineage
+
+The three-pane layout, theme preview workflow, and themed modal language began
+in [Tide](https://github.com/allisonhere/tide), a terminal RSS reader. TideMail
+later adapted and refined that interface; `tideui` packages the reusable UI
+primitives for use in additional Bubble Tea applications.
 
 ## Install
 
@@ -17,9 +26,9 @@ go get github.com/allisonhere/tideui
 ## Features
 
 - Nineteen built-in palettes with optional background, foreground, and accent overrides.
-- `StackedRight` layout matching TideMail and a general `ThreeColumn` layout.
+- `StackedRight` layout derived from Tide's three-pane reader and a general `ThreeColumn` layout.
 - Compact and comfortable density modes plus VT52 ASCII presentation.
-- Themed pane headers, rows, status bars, overlays, and a TideMail-style theme picker.
+- Themed pane headers, rows, status bars, overlays, and a Tide-derived theme picker.
 - Terminal background sequences exposed for application-controlled terminal updates.
 - Output constrained to the requested terminal dimensions, including very small windows.
 
@@ -67,7 +76,7 @@ func (m model) View() string {
 ## Layouts
 
 `StackedRight` renders pane `0` as a left sidebar, pane `1` above pane `2` on
-the right, and defaults to TideMail's `28%` sidebar and `40%` upper-right
+the right, and defaults to Tide's `28%` sidebar and `40%` upper-right
 height. Configure it with `SidebarRatio` and `UpperRightRatio`.
 
 `ThreeColumn` renders the three panes from left to right. Use `ColumnRatios` to
@@ -121,7 +130,7 @@ Built-in theme names:
 
 ## Theme Pickers
 
-`ThemePicker` provides TideMail-style picker state and modal rendering:
+`ThemePicker` provides Tide-derived picker state and modal rendering:
 `j`/`k` and arrow keys preview themes, `enter` confirms, and `esc` reverts.
 Your application still decides when to open it, persists confirmed selections,
 and emits terminal background sequences.
