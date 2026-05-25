@@ -17,6 +17,8 @@ in [Tide](https://github.com/allisonhere/tide), a terminal RSS reader. TideMail
 later adapted and refined that interface; `tideui` packages the reusable UI
 primitives for use in additional Bubble Tea applications.
 
+![tideui three-pane layout and theme picker](./screen.png)
+
 ## Install
 
 ```bash
