@@ -45,6 +45,12 @@ func TestBuildStylesUsesConfiguredOverlaySurface(t *testing.T) {
 	if got := styles.OverlayHint.GetBackground(); got != CatppuccinMocha.Overlay {
 		t.Fatalf("overlay hint background = %v, want %v", got, CatppuccinMocha.Overlay)
 	}
+	if got := styles.Overlay.GetBorderTopForeground(); got != CatppuccinMocha.OverlayBorder {
+		t.Fatalf("overlay border foreground = %v, want %v", got, CatppuccinMocha.OverlayBorder)
+	}
+	if got := styles.Overlay.GetBorderTopBackground(); got != CatppuccinMocha.Overlay {
+		t.Fatalf("overlay border background = %v, want %v", got, CatppuccinMocha.Overlay)
+	}
 }
 
 func TestStylesMaintainReadableContrast(t *testing.T) {

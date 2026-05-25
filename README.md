@@ -143,7 +143,7 @@ func newModel(savedName string) model {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
     if key, ok := msg.(tea.KeyMsg); ok {
-        if key.String() == "T" && !m.picker.Opened() {
+        if key.String() == "t" && !m.picker.Opened() {
             m.picker.Open(m.theme.Name)
         } else if m.picker.Opened() {
             action := m.picker.Update(key)
@@ -211,5 +211,5 @@ go vet ./...
 ```
 
 Run the demo with `go run ./cmd/demo`. Use `tab` to move focus, `l` to change
-layout, `T` to open the theme picker, `d` to switch density, `o` to toggle the
+layout, `t` to open the theme picker, `d` to switch density, `o` to toggle the
 generic overlay, and `q` to quit.

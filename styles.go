@@ -159,6 +159,7 @@ func BuildStyles(base Theme, options StyleOptions) Styles {
 			Foreground(readableText(t.Fg, t.BorderFocus, 4.5)).Bold(true).Padding(0, 1),
 		Overlay: lipgloss.NewStyle().Background(modalBG).Border(overlayBorder(plain)).
 			BorderForeground(modalBorder).
+			BorderBackground(modalBG).
 			Padding(modalPadTop, modalPadRight, modalPadBottom, modalPadLeft),
 		OverlayTitle: lipgloss.NewStyle().Background(modalAccent).
 			Foreground(readableText(t.Fg, modalAccent, 4.5)).Bold(true).Padding(0, 1).

@@ -51,7 +51,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.focus = (m.focus + 1) % 3
 		case "shift+tab":
 			m.focus = (m.focus + 2) % 3
-		case "T":
+		case "t":
 			m.showOverlay = false
 			m.picker.Open(m.theme.Name)
 		case "d":
@@ -112,12 +112,12 @@ func (m model) View() string {
 		Width: m.width, Height: m.height, Mode: m.mode,
 		Panes: [3]tideui.Pane{
 			{Title: "Boards", Hint: "tab focus", Content: strings.Join(items, "\n"), Focused: m.focus == 0},
-			{Title: "Tasks", Hint: "T themes", Content: strings.Join(tasks, "\n"), Focused: m.focus == 1},
+			{Title: "Tasks", Hint: "t themes", Content: strings.Join(tasks, "\n"), Focused: m.focus == 1},
 			{Title: "Detail", Hint: "o modal", Content: detail, Focused: m.focus == 2},
 		},
 		Status: &tideui.StatusBar{
 			Left:  fmt.Sprintf("%s | %s | %s", m.theme.Name, m.density, layoutName),
-			Right: "tab focus  T themes  d density  l layout  o overlay  q quit",
+			Right: "tab focus  t themes  d density  l layout  o overlay  q quit",
 		},
 		Modal: modal,
 	})
