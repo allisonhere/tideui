@@ -5,7 +5,8 @@ TideMail's themeable terminal interface. It renders application-provided content
 inside themed pane shells, status bars, and overlays.
 
 The package is intentionally view-oriented. Applications retain ownership of
-their Bubble Tea model, commands, key bindings, persistence, and viewport state.
+their Bubble Tea model, commands, key routing, persistence, and viewport state;
+the optional picker handles its own navigation once an application opens it.
 
 ## Install
 
@@ -18,7 +19,8 @@ go get github.com/allisonhere/tideui
 - Nineteen built-in palettes with optional background, foreground, and accent overrides.
 - `StackedRight` layout matching TideMail and a general `ThreeColumn` layout.
 - Compact and comfortable density modes plus VT52 ASCII presentation.
-- Themed pane headers, rows, status bars, overlays, and terminal background sequences.
+- Themed pane headers, rows, status bars, overlays, and a TideMail-style theme picker.
+- Terminal background sequences exposed for application-controlled terminal updates.
 - Output constrained to the requested terminal dimensions, including very small windows.
 
 ## Usage
@@ -119,10 +121,51 @@ Built-in theme names:
 
 ## Theme Pickers
 
-The library exposes `BuiltinThemes`, `ThemeByName`, and instant renderer
-reconstruction so an application can preview theme selections while navigating
-a picker. It does not own picker state, keys, confirmation, or config
-persistence; those remain application responsibilities in v1.
+`ThemePicker` provides TideMail-style picker state and modal rendering:
+`j`/`k` and arrow keys preview themes, `enter` confirms, and `esc` reverts.
+Your application still decides when to open it, persists confirmed selections,
+and emits terminal background sequences.
+
+```go
+type model struct {
+    width, height int
+    theme         tideui.Theme
+    picker        tideui.ThemePicker
+}
+
+func newModel(savedName string) model {
+    theme, _ := tideui.ThemeByName(savedName)
+    return model{
+        theme:  theme,
+        picker: tideui.NewThemePicker(tideui.ThemePickerOptions{InitialTheme: theme.Name}),
+    }
+}
+
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+    if key, ok := msg.(tea.KeyMsg); ok {
+        if key.String() == "T" && !m.picker.Opened() {
+            m.picker.Open(m.theme.Name)
+        } else if m.picker.Opened() {
+            action := m.picker.Update(key)
+            m.theme = m.picker.PreviewTheme() // rebuild View immediately for live preview
+            if action == tideui.ThemePickerConfirm {
+                saveThemeName(m.picker.ConfirmedTheme().Name)
+            }
+        }
+    }
+    return m, nil
+}
+
+func (m model) View() string {
+    renderer := tideui.NewRenderer(m.theme, tideui.StyleOptions{})
+    layout := tideui.Layout{Width: m.width, Height: m.height, Panes: m.panes()}
+    if m.picker.Opened() {
+        modal := m.picker.Modal(renderer, 40, m.height)
+        layout.Modal = &modal
+    }
+    return renderer.Render(layout)
+}
+```
 
 ## Status Bars And Overlays
 
@@ -151,9 +194,9 @@ terminal; the application decides whether and where to emit the strings.
 In v1, `tideui` renders presentation primitives. The consuming application owns:
 
 - Bubble Tea `Update` behavior and commands.
-- Keyboard navigation and focus state.
+- Application keyboard navigation and focus state outside the theme picker.
 - Viewport scrolling and content formatting.
-- Theme picker state and persisted configuration.
+- Persisted theme configuration after picker confirmation.
 - Terminal control sequence output.
 
 ## Requirements
@@ -168,5 +211,5 @@ go vet ./...
 ```
 
 Run the demo with `go run ./cmd/demo`. Use `tab` to move focus, `l` to change
-layout, `t` to cycle themes, `d` to switch density, `o` to toggle the overlay,
-and `q` to quit.
+layout, `T` to open the theme picker, `d` to switch density, `o` to toggle the
+generic overlay, and `q` to quit.
