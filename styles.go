@@ -2,18 +2,23 @@ package tideui
 
 import "github.com/charmbracelet/lipgloss"
 
+// Density controls vertical spacing in rows and overlays.
 type Density string
 
 const (
-	Compact     Density = "compact"
+	// Compact removes optional spacer rows and modal padding.
+	Compact Density = "compact"
+	// Comfortable adds breathing room between rows and in modals.
 	Comfortable Density = "comfortable"
 )
 
+// StyleOptions controls density and optional theme color replacements.
 type StyleOptions struct {
 	Density   Density
 	Overrides ThemeOverrides
 }
 
+// Styles exposes resolved Lipgloss styles for composing application content.
 type Styles struct {
 	Theme   Theme
 	PlainUI bool
@@ -54,6 +59,7 @@ func normalizeDensity(d Density) Density {
 	return Compact
 }
 
+// ListItemLineStride returns the terminal-line height expected per rendered row.
 func (s Styles) ListItemLineStride() int {
 	if s.Density == Comfortable {
 		return 2
@@ -61,6 +67,7 @@ func (s Styles) ListItemLineStride() int {
 	return 1
 }
 
+// StatusBarSeparator returns theme-appropriate separator text for footer segments.
 func (s Styles) StatusBarSeparator() string {
 	if s.PlainUI {
 		return " | "
@@ -82,6 +89,7 @@ func overlayBorder(plain bool) lipgloss.Border {
 	return lipgloss.RoundedBorder()
 }
 
+// BuildStyles resolves a theme and options into reusable Lipgloss styles.
 func BuildStyles(base Theme, options StyleOptions) Styles {
 	t := options.Overrides.Apply(base)
 	density := normalizeDensity(options.Density)

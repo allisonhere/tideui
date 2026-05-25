@@ -7,13 +7,17 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
+// LayoutMode selects how the three panes are arranged in the rendered shell.
 type LayoutMode int
 
 const (
+	// StackedRight places pane 0 on the left and stacks panes 1 and 2 on the right.
 	StackedRight LayoutMode = iota
+	// ThreeColumn places all three panes side by side.
 	ThreeColumn
 )
 
+// Pane supplies a header and rendered body for one region of a Layout.
 type Pane struct {
 	Title   string
 	Hint    string
@@ -22,11 +26,13 @@ type Pane struct {
 	Accent  lipgloss.Color
 }
 
+// StatusBar supplies optional left- and right-aligned footer text.
 type StatusBar struct {
 	Left  string
 	Right string
 }
 
+// Overlay describes a centered modal displayed over the rendered layout.
 type Overlay struct {
 	Visible bool
 	Title   string
@@ -35,6 +41,7 @@ type Overlay struct {
 	Width   int
 }
 
+// Layout supplies terminal dimensions, three panes, and optional shell chrome.
 type Layout struct {
 	Width  int
 	Height int
@@ -51,14 +58,17 @@ type Layout struct {
 	ColumnRatios [3]float64
 }
 
+// Renderer renders Layout and Row values using one resolved set of styles.
 type Renderer struct {
 	Styles Styles
 }
 
+// NewRenderer creates a renderer for a theme and style options.
 func NewRenderer(theme Theme, options StyleOptions) Renderer {
 	return Renderer{Styles: BuildStyles(theme, options)}
 }
 
+// Render produces a terminal-sized themed view for layout.
 func (r Renderer) Render(layout Layout) string {
 	if layout.Width <= 0 || layout.Height <= 0 {
 		return ""
@@ -86,6 +96,7 @@ func (r Renderer) Render(layout Layout) string {
 	return clampView(view, layout.Width, layout.Height, r.Styles.Theme.Bg)
 }
 
+// Row is a generic themed list row with optional left and right content.
 type Row struct {
 	Prefix   string
 	Text     string
@@ -94,6 +105,7 @@ type Row struct {
 	Muted    bool
 }
 
+// RenderRow formats one Row to the requested content width.
 func (r Renderer) RenderRow(row Row, width int) string {
 	style := r.Styles.Item
 	if row.Muted {
