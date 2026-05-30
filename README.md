@@ -28,7 +28,9 @@ go get github.com/allisonhere/tideui
 ## Features
 
 - Nineteen built-in palettes with optional background, foreground, and accent overrides.
-- `StackedRight` layout derived from Tide's three-pane reader and a general `ThreeColumn` layout.
+- Five layout modes: `StackedRight`, `ThreeColumn`, `SidebarOnly`, `Tabbed`, and `Floating`.
+- Per-pane scroll offsets with a `PaneScroller` helper for managing scroll state.
+- Single-line `Row` and multi-line `Block` primitives for rendering themed list content.
 - Compact and comfortable density modes plus VT52 ASCII presentation.
 - Themed pane headers, rows, status bars, overlays, and a Tide-derived theme picker.
 - Terminal background sequences exposed for application-controlled terminal updates.
@@ -46,8 +48,8 @@ view := renderer.Render(tideui.Layout{
     Width: 80, Height: 24, Mode: tideui.StackedRight,
     Panes: [3]tideui.Pane{
         {Title: "Projects", Content: "inbox\narchive", Focused: true},
-        {Title: "Tasks", Content: "ship tideui"},
-        {Title: "Detail", Content: "Application-owned content."},
+        {Title: "Tasks",    Content: "ship tideui"},
+        {Title: "Detail",   Content: "Application-owned content."},
     },
     Status: &tideui.StatusBar{Left: "ready", Right: "? help"},
 })
@@ -77,34 +79,126 @@ func (m model) View() string {
 
 ## Layouts
 
-`StackedRight` renders pane `0` as a left sidebar, pane `1` above pane `2` on
-the right, and defaults to Tide's `28%` sidebar and `40%` upper-right
-height. Configure it with `SidebarRatio` and `UpperRightRatio`.
-
-`ThreeColumn` renders the three panes from left to right. Use `ColumnRatios` to
-allocate relative widths:
+| Mode | Description | Configuration fields |
+|---|---|---|
+| `StackedRight` | Pane 0 as sidebar, panes 1 and 2 stacked on the right | `SidebarRatio`, `UpperRightRatio` |
+| `ThreeColumn` | All three panes side by side | `ColumnRatios` |
+| `SidebarOnly` | Pane 0 as sidebar, pane 1 as full-height main area (pane 2 unused) | `SidebarRatio` |
+| `Tabbed` | Tab bar across the top; the focused pane's content fills the area below | — |
+| `Floating` | Pane 0 as full-screen background; panes 1 and 2 as overlaid floating panels | `FloatWidthRatio`, `FloatHeightRatio` |
 
 ```go
-layout.Mode = tideui.ThreeColumn
+// StackedRight with custom ratios
+layout.Mode = tideui.StackedRight
+layout.SidebarRatio    = 0.30
+layout.UpperRightRatio = 0.45
+
+// ThreeColumn with relative widths
+layout.Mode         = tideui.ThreeColumn
 layout.ColumnRatios = [3]float64{2, 3, 5}
+
+// Floating panels
+layout.Mode             = tideui.Floating
+layout.FloatWidthRatio  = 0.40   // panels occupy 40 % of width
+layout.FloatHeightRatio = 0.50   // split evenly between the two panels
 ```
 
-## Rows And Content
+In `Tabbed` mode the `Focused` field on each `Pane` selects the active tab
+(first focused pane wins; falls back to pane 0).
 
-Pane content is application-provided text. Use `RenderRow` for themed list rows
-and the exported `Styles` for custom detail content:
+## Rows and Blocks
+
+### Single-line rows
+
+`RenderRow` renders a single-line list item with optional prefix and
+right-aligned suffix. Use the `Selected` and `Muted` states for highlighting:
 
 ```go
 rows := []string{
     renderer.RenderRow(tideui.Row{Prefix: "* ", Text: "Selected", Suffix: "3", Selected: true}, 26),
+    renderer.RenderRow(tideui.Row{Prefix: "  ", Text: "Normal"}, 26),
     renderer.RenderRow(tideui.Row{Prefix: "  ", Text: "Archived", Muted: true}, 26),
 }
-detail := renderer.Styles.DetailTitle.Render("Selected") + "\n\n" +
-    renderer.Styles.DetailBody.Render("Application-owned detail content.")
+```
+
+### Multi-line blocks
+
+`RenderBlock` renders a structured item with a header line and an optional
+multi-line body — useful for message threads, notification cards, or any content
+richer than a single row. A `Block` with no `Body` produces byte-identical
+output to the equivalent `RenderRow`.
+
+```go
+blocks := []string{
+    renderer.RenderBlock(tideui.Block{
+        Prefix: "● ", Header: "alice", Meta: "10:02",
+        Body: "The UI toolkit is looking great.",
+    }, width),
+    renderer.RenderBlock(tideui.Block{
+        Prefix: "● ", Header: "bob", Meta: "10:05",
+        Body:     "Agreed — just added multi-line block support.",
+        Selected: true,
+    }, width),
+    renderer.RenderBlock(tideui.Block{
+        Prefix: "○ ", Header: "alice", Meta: "10:07",
+        Body:  "Does it support scrolling?",
+        Muted: true,
+    }, width),
+}
+```
+
+The `Body` is indented to align with the header text start (after `Prefix`).
+`Selected` and `Muted` apply to the header line; the body always uses
+`DetailBody` styling.
+
+### Custom detail content
+
+Use the exported `Styles` for completely custom content inside a pane:
+
+```go
+detail := renderer.Styles.DetailTitle.Render("Subject line") + "\n" +
+    renderer.Styles.DetailMeta.Render("alice · 10:02") + "\n\n" +
+    renderer.Styles.DetailBody.Render("Message body text goes here.")
 ```
 
 Focused panes use the theme accent. Set `Pane.Accent` only when an individual
-pane should intentionally use another accent color.
+pane should intentionally override the accent color.
+
+## Scrollable Panes
+
+Set `Pane.ScrollOffset` to scroll a pane's content by that many lines.
+`PaneScroller` is a convenience helper that manages the integer offset and
+exposes scroll actions:
+
+```go
+type model struct {
+    scrollers [3]tideui.PaneScroller
+    // ...
+}
+
+// In Update:
+case "j", "down":
+    m.scrollers[m.focus].ScrollDown(1)
+case "k", "up":
+    m.scrollers[m.focus].ScrollUp(1)
+case "g":
+    m.scrollers[m.focus].ScrollToTop()
+
+// In View — pass Offset() to each pane:
+tideui.Pane{
+    Title:        "Tasks",
+    Content:      strings.Join(rows, "\n"),
+    Focused:      m.focus == 1,
+    ScrollOffset: m.scrollers[1].Offset(),
+}
+```
+
+`ClampTo(totalLines, visibleLines)` prevents the scroller from going past the
+last line when you know the content line count. The renderer silently clamps
+out-of-range offsets regardless, so a blank pane is never produced.
+
+`CanScrollDown(totalLines, visibleLines)` reports whether more content is
+hidden below, which is useful for rendering a scroll indicator.
 
 ## Themes
 
@@ -130,7 +224,7 @@ Built-in theme names:
 `rose-pine-dawn`, `one-dark`, `magenta-geode`, `coral-sunset`,
 `lavender-fields-forever`, `vt100`, and `vt52`.
 
-## Theme Pickers
+## Theme Picker
 
 `ThemePicker` provides Tide-derived picker state and modal rendering:
 `j`/`k` and arrow keys preview themes, `enter` confirms, and `esc` reverts.
@@ -178,7 +272,7 @@ func (m model) View() string {
 }
 ```
 
-## Status Bars And Overlays
+## Status Bars and Overlays
 
 Provide a `StatusBar` and optional `Overlay` in the layout; `Width` on an
 overlay is the full modal width including its border:
@@ -206,7 +300,8 @@ In v1, `tideui` renders presentation primitives. The consuming application owns:
 
 - Bubble Tea `Update` behavior and commands.
 - Application keyboard navigation and focus state outside the theme picker.
-- Viewport scrolling and content formatting.
+- Scroll offset state (via `PaneScroller` or directly via `Pane.ScrollOffset`).
+- Content formatting and line counts for `ClampTo` / `CanScrollDown`.
 - Persisted theme configuration after picker confirmation.
 - Terminal control sequence output.
 
@@ -221,6 +316,15 @@ go test ./...
 go vet ./...
 ```
 
-Run the demo with `go run ./cmd/demo`. Use `tab` to move focus, `l` to change
-layout, `t` to open the theme picker, `d` to switch density, `o` to toggle the
-generic overlay, and `q` to quit.
+Run the demo with `go run ./cmd/demo`.
+
+| Key | Action |
+|---|---|
+| `tab` / `shift+tab` | Move focus between panes |
+| `j` / `k` | Scroll the focused pane |
+| `g` | Scroll to top |
+| `l` | Cycle layout modes |
+| `t` | Open theme picker |
+| `d` | Toggle density |
+| `o` | Toggle overlay |
+| `q` | Quit |

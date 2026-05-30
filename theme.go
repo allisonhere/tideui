@@ -11,19 +11,19 @@ const (
 
 // Theme contains the semantic colors used by the shell and its components.
 type Theme struct {
-	Name          string
-	Bg            lipgloss.Color
-	Fg            lipgloss.Color
-	Border        lipgloss.Color
-	BorderFocus   lipgloss.Color
-	Selected      lipgloss.Color
-	Unread        lipgloss.Color
-	Dimmed        lipgloss.Color
-	StatusBar     lipgloss.Color
-	StatusFg      lipgloss.Color
-	Error         lipgloss.Color
-	Overlay       lipgloss.Color
-	OverlayBorder lipgloss.Color
+	Name          string         // identifier used by ThemeByName and ThemePicker
+	Bg            lipgloss.Color // pane background
+	Fg            lipgloss.Color // primary text
+	Border        lipgloss.Color // unfocused pane border and inactive tab header background
+	BorderFocus   lipgloss.Color // focused pane border, active tab header background, and accent highlight
+	Selected      lipgloss.Color // selected list item background (falls back to BorderFocus)
+	Unread        lipgloss.Color // badge / unread-count foreground
+	Dimmed        lipgloss.Color // muted text; the renderer raises contrast if the raw value fails WCAG 3:1
+	StatusBar     lipgloss.Color // status bar background
+	StatusFg      lipgloss.Color // status bar text
+	Error         lipgloss.Color // error text in the status bar
+	Overlay       lipgloss.Color // modal background; defaults to a lightness-adjusted Bg when empty
+	OverlayBorder lipgloss.Color // modal border; falls back to Border when empty
 }
 
 // ThemeOverrides replaces presentation colors without requiring a new theme.
