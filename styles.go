@@ -19,37 +19,51 @@ type StyleOptions struct {
 }
 
 // Styles exposes resolved Lipgloss styles for composing application content.
+// All styles carry the correct theme background so rendering any piece of
+// content inside a pane produces a cohesive, uniformly coloured surface.
 type Styles struct {
-	Theme   Theme
-	PlainUI bool
+	Theme   Theme  // resolved theme after any ThemeOverrides are applied
+	PlainUI bool   // true when the theme uses ASCII borders (e.g. VT52)
 	Density Density
 
-	Pane               lipgloss.Style
-	PaneHeaderActive   lipgloss.Style
-	PaneHeaderInactive lipgloss.Style
-	Item               lipgloss.Style
-	ItemMuted          lipgloss.Style
-	ItemSelected       lipgloss.Style
-	Badge              lipgloss.Style
-	DetailTitle        lipgloss.Style
-	DetailMeta         lipgloss.Style
-	DetailBody         lipgloss.Style
-	DetailFocusLine    lipgloss.Style
-	SearchMatch        lipgloss.Style
+	// Pane chrome — used internally; available for custom pane-like surfaces.
+	Pane               lipgloss.Style // pane background fill
+	PaneHeaderActive   lipgloss.Style // focused pane title bar
+	PaneHeaderInactive lipgloss.Style // unfocused pane title bar
 
-	StatusBar       lipgloss.Style
-	StatusError     lipgloss.Style
-	StatusHint      lipgloss.Style
+	// List items — pass to RenderRow or use directly for custom rows.
+	Item         lipgloss.Style // default list row
+	ItemMuted    lipgloss.Style // de-emphasised row (archived, read, disabled)
+	ItemSelected lipgloss.Style // currently highlighted row
+
+	// Inline annotations.
+	Badge       lipgloss.Style // unread count or short tag rendered inside a row
+	SearchMatch lipgloss.Style // highlighted substring within a search result
+
+	// Detail pane content — compose these to build multi-section detail views.
+	DetailTitle     lipgloss.Style // bold accent-background heading (e.g. subject line)
+	DetailMeta      lipgloss.Style // dimmed italic secondary line (e.g. author, date)
+	DetailBody      lipgloss.Style // plain body text; wraps to Width when set
+	DetailFocusLine lipgloss.Style // subtle highlight for the cursor row in a detail list
+
+	// Status bar segments — render text then join with StatusBarSeparator.
+	StatusBar    lipgloss.Style // main status bar background and text
+	StatusError  lipgloss.Style // error message segment (bold, error colour)
+	StatusHint   lipgloss.Style // low-contrast keyboard hint
+	StatusNotice lipgloss.Style // accent-background announcement segment
+	// StatusBarJoiner renders the separator returned by StatusBarSeparator.
 	StatusBarJoiner lipgloss.Style
-	StatusNotice    lipgloss.Style
 
-	Overlay      lipgloss.Style
-	OverlayTitle lipgloss.Style
-	OverlayBody  lipgloss.Style
-	OverlayHint  lipgloss.Style
-	InputFocused lipgloss.Style
-	InputIdle    lipgloss.Style
-	InputLabel   lipgloss.Style
+	// Overlay / modal content — used by renderOverlay; available for custom modals.
+	Overlay      lipgloss.Style // modal border and background
+	OverlayTitle lipgloss.Style // accent-background modal heading
+	OverlayBody  lipgloss.Style // modal body text
+	OverlayHint  lipgloss.Style // dimmed footer hint inside the modal
+
+	// Form inputs — for text fields rendered inside an overlay.
+	InputFocused lipgloss.Style // text field with focus border
+	InputIdle    lipgloss.Style // text field without focus
+	InputLabel   lipgloss.Style // label above a text field
 }
 
 func normalizeDensity(d Density) Density {

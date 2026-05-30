@@ -97,9 +97,111 @@ func TestOverlayTitleStaysInsideRequestedModalWidth(t *testing.T) {
 	}
 }
 
+func TestRenderBlockNoBodyMatchesRenderRow(t *testing.T) {
+	for _, density := range []Density{Compact, Comfortable} {
+		renderer := NewRenderer(CatppuccinMocha, StyleOptions{Density: density})
+		row := renderer.RenderRow(Row{Prefix: "* ", Text: "Hello", Suffix: "3", Selected: true}, 40)
+		block := renderer.RenderBlock(Block{Prefix: "* ", Header: "Hello", Meta: "3", Selected: true}, 40)
+		if row != block {
+			t.Fatalf("density=%s: block with no body should match row\nrow:   %q\nblock: %q", density, row, block)
+		}
+	}
+}
+
+func TestRenderBlockWithBodyFitsWidth(t *testing.T) {
+	renderer := NewRenderer(Nord, StyleOptions{Density: Compact})
+	block := renderer.RenderBlock(Block{
+		Prefix: "● ", Header: "alice", Meta: "10:02",
+		Body: "This is a longer message that should wrap correctly to fit within the block width.",
+	}, 40)
+	for i, line := range strings.Split(block, "\n") {
+		if got := lipgloss.Width(line); got != 40 {
+			t.Fatalf("block line %d width = %d, want 40 (%q)", i, got, ansi.Strip(line))
+		}
+	}
+}
+
+func TestRenderBlockBodyIsIndentedByPrefix(t *testing.T) {
+	renderer := NewRenderer(Dracula, StyleOptions{Density: Compact})
+	const prefix = ">> "
+	block := renderer.RenderBlock(Block{
+		Prefix: prefix, Header: "bob", Body: "Line one\nLine two",
+	}, 40)
+	lines := strings.Split(ansi.Strip(block), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("expected at least 2 lines, got %d", len(lines))
+	}
+	wantIndent := strings.Repeat(" ", lipgloss.Width(prefix))
+	for _, line := range lines[1:] {
+		if !strings.HasPrefix(line, wantIndent) {
+			t.Fatalf("body line %q does not start with %q-char indent", line, wantIndent)
+		}
+	}
+}
+
+func TestRenderBlockStateRoutingMatchesRenderRow(t *testing.T) {
+	// ANSI codes are stripped in non-TTY test environments, so we verify that
+	// RenderBlock routes Selected/Muted identically to RenderRow by comparing
+	// their outputs directly (they share the same style-selection code path).
+	renderer := NewRenderer(CatppuccinMocha, StyleOptions{Density: Compact})
+	for _, tc := range []struct{ selected, muted bool }{
+		{false, false}, {true, false}, {false, true},
+	} {
+		got := renderer.RenderBlock(Block{Prefix: "  ", Header: "x", Selected: tc.selected, Muted: tc.muted}, 30)
+		want := renderer.RenderRow(Row{Prefix: "  ", Text: "x", Selected: tc.selected, Muted: tc.muted}, 30)
+		if got != want {
+			t.Fatalf("selected=%v muted=%v: RenderBlock routing does not match RenderRow\ngot:  %q\nwant: %q",
+				tc.selected, tc.muted, got, want)
+		}
+	}
+}
+
+func TestRenderSidebarOnlyFitsWindow(t *testing.T) {
+	renderer := NewRenderer(CatppuccinMocha, StyleOptions{Density: Compact})
+	view := renderer.Render(testLayout(SidebarOnly))
+	assertDimensions(t, view, 72, 20)
+	plain := ansi.Strip(view)
+	for _, title := range []string{"Sidebar", "List"} {
+		if !strings.Contains(plain, title) {
+			t.Fatalf("expected output to contain %q in:\n%s", title, plain)
+		}
+	}
+	if strings.Contains(plain, "Detail") {
+		t.Fatal("pane 2 title should not appear in SidebarOnly mode")
+	}
+}
+
+func TestRenderTabbedFitsWindow(t *testing.T) {
+	renderer := NewRenderer(Nord, StyleOptions{Density: Compact})
+	layout := testLayout(Tabbed)
+	view := renderer.Render(layout)
+	assertDimensions(t, view, 72, 20)
+	plain := ansi.Strip(view)
+	for _, title := range []string{"Sidebar", "List", "Detail"} {
+		if !strings.Contains(plain, title) {
+			t.Fatalf("expected tab bar to contain %q in:\n%s", title, plain)
+		}
+	}
+	if !strings.Contains(plain, "one") {
+		t.Fatal("expected active pane content to be visible")
+	}
+}
+
+func TestRenderFloatingFitsWindow(t *testing.T) {
+	renderer := NewRenderer(Dracula, StyleOptions{Density: Compact})
+	view := renderer.Render(testLayout(Floating))
+	assertDimensions(t, view, 72, 20)
+	plain := ansi.Strip(view)
+	for _, title := range []string{"Sidebar", "List", "Detail"} {
+		if !strings.Contains(plain, title) {
+			t.Fatalf("expected output to contain %q in:\n%s", title, plain)
+		}
+	}
+}
+
 func TestRenderConstrainedWindowsNeverExceedsDimensions(t *testing.T) {
 	renderer := NewRenderer(CatppuccinMocha, StyleOptions{Density: Compact})
-	for _, mode := range []LayoutMode{StackedRight, ThreeColumn} {
+	for _, mode := range []LayoutMode{StackedRight, ThreeColumn, SidebarOnly, Tabbed, Floating} {
 		for width := 1; width <= 12; width++ {
 			for height := 1; height <= 8; height++ {
 				layout := testLayout(mode)
@@ -122,6 +224,48 @@ func TestThreeColumnRatiosAlwaysReserveEachPaneWhenSpaceAllows(t *testing.T) {
 			t.Fatalf("ratios %v width total = %d, want 20", ratios, got)
 		}
 	}
+}
+
+func TestRenderTabbedScrollOffsetSkipsLines(t *testing.T) {
+	renderer := NewRenderer(CatppuccinMocha, StyleOptions{Density: Compact})
+	layout := testLayout(Tabbed)
+	layout.Panes[0].Focused = true
+	layout.Panes[0].Content = "line-A\nline-B\nline-C\nline-D\nline-E"
+	layout.Panes[0].ScrollOffset = 2
+	view := renderer.Render(layout)
+	assertDimensions(t, view, 72, 20)
+	plain := ansi.Strip(view)
+	if strings.Contains(plain, "line-A") || strings.Contains(plain, "line-B") {
+		t.Fatal("scrolled-past lines should not appear in tabbed view")
+	}
+	if !strings.Contains(plain, "line-C") {
+		t.Fatal("first visible line after scroll offset should appear in tabbed view")
+	}
+}
+
+func TestRenderPaneScrollOffsetSkipsLines(t *testing.T) {
+	renderer := NewRenderer(CatppuccinMocha, StyleOptions{Density: Compact})
+	layout := testLayout(StackedRight)
+	layout.Panes[0].Content = "line-A\nline-B\nline-C\nline-D\nline-E"
+	layout.Panes[0].ScrollOffset = 2
+	view := renderer.Render(layout)
+	assertDimensions(t, view, 72, 20)
+	plain := ansi.Strip(view)
+	if strings.Contains(plain, "line-A") || strings.Contains(plain, "line-B") {
+		t.Fatal("scrolled-past lines should not appear in the view")
+	}
+	if !strings.Contains(plain, "line-C") {
+		t.Fatal("first visible line after scroll offset should appear")
+	}
+}
+
+func TestRenderPaneScrollOffsetOutOfRangeDoesNotPanic(t *testing.T) {
+	renderer := NewRenderer(CatppuccinMocha, StyleOptions{Density: Compact})
+	layout := testLayout(StackedRight)
+	layout.Panes[1].Content = "only\ntwo\nlines"
+	layout.Panes[1].ScrollOffset = 999
+	view := renderer.Render(layout)
+	assertDimensions(t, view, 72, 20)
 }
 
 func TestTerminalBackgroundSequenceDoesNotWriteTerminal(t *testing.T) {
