@@ -1,23 +1,21 @@
 # tideui
 
-`tideui` is a reusable Bubble Tea/Lipgloss presentation toolkit based on the
-themeable terminal interface originally built for
-[Tide](https://github.com/allisonhere/tide) and later refined in TideMail. It
-renders application-provided content inside themed pane shells, status bars,
-and overlays.
+**A themeable, multi-pane terminal UI toolkit for [Bubble Tea](https://github.com/charmbracelet/bubbletea) and [Lipgloss](https://github.com/charmbracelet/lipgloss).**
 
-The package is intentionally view-oriented. Applications retain ownership of
-their Bubble Tea model, commands, key routing, persistence, and viewport state;
-the optional picker handles its own navigation once an application opens it.
+`tideui` renders application-provided content inside themed pane shells, status
+bars, and overlays. It is deliberately *view-oriented*: your application keeps
+its own Bubble Tea model, key routing, persistence, and viewport state — you
+hand `tideui` strings and dimensions, and it returns a framed, themed view.
+
+![tideui three-pane layout and theme picker](./screen.png)
 
 ## Lineage
 
-The three-pane layout, theme preview workflow, and themed modal language began
-in [Tide](https://github.com/allisonhere/tide), a terminal RSS reader. TideMail
-later adapted and refined that interface; `tideui` packages the reusable UI
-primitives for use in additional Bubble Tea applications.
-
-![tideui three-pane layout and theme picker](./screen.png)
+The three-pane layout, theme-preview workflow, and themed modal language began
+in [Tide](https://github.com/allisonhere/tide), a terminal RSS reader, and were
+refined in [TideMail](https://github.com/allisonhere/tidemail), a keyboard-first
+email client. `tideui` packages those reusable primitives for any Bubble Tea
+application.
 
 ## Install
 
@@ -27,16 +25,16 @@ go get github.com/allisonhere/tideui
 
 ## Features
 
-- Nineteen built-in palettes with optional background, foreground, and accent overrides.
-- Five layout modes: `StackedRight`, `ThreeColumn`, `SidebarOnly`, `Tabbed`, and `Floating`.
-- Per-pane scroll offsets with a `PaneScroller` helper for managing scroll state.
-- Single-line `Row` and multi-line `Block` primitives for rendering themed list content.
-- Compact and comfortable density modes plus VT52 ASCII presentation.
-- Themed pane headers, rows, status bars, overlays, and a Tide-derived theme picker.
-- Terminal background sequences exposed for application-controlled terminal updates.
-- Output constrained to the requested terminal dimensions, including very small windows.
+- **Five layout modes** — `StackedRight`, `ThreeColumn`, `SidebarOnly`, `Tabbed`, and `Floating`, each with tunable ratios.
+- **Nineteen built-in palettes** (Catppuccin, Nord, Dracula, Gruvbox, and more) with per-field background/foreground/accent overrides.
+- **Themed chrome** — pane headers, status bars, centered modal overlays, and a ready-made theme picker.
+- **List primitives** — single-line `Row` and multi-line `Block` with selected/muted states.
+- **Per-pane scrolling** via `Pane.ScrollOffset` and the `PaneScroller` helper.
+- **Density + accessibility** — compact/comfortable spacing and a VT52 ASCII mode.
+- **Bounded output** — never exceeds the requested terminal dimensions, down to tiny windows.
+- **Terminal background control** — exposes the escape sequences so the app, not the library, writes to the terminal.
 
-## Usage
+## Quick start
 
 ```go
 import "github.com/allisonhere/tideui"
@@ -47,18 +45,18 @@ renderer := tideui.NewRenderer(theme, tideui.StyleOptions{Density: tideui.Compac
 view := renderer.Render(tideui.Layout{
     Width: 80, Height: 24, Mode: tideui.StackedRight,
     Panes: [3]tideui.Pane{
-        {Title: "Projects", Content: "inbox\narchive", Focused: true},
-        {Title: "Tasks",    Content: "ship tideui"},
-        {Title: "Detail",   Content: "Application-owned content."},
+        {Title: "Mailboxes", Content: "Inbox\nArchive", Focused: true},
+        {Title: "Messages",  Content: "Welcome to tideui"},
+        {Title: "Preview",   Content: "Application-owned content."},
     },
     Status: &tideui.StatusBar{Left: "ready", Right: "? help"},
 })
 ```
 
-## Bubble Tea Integration
+## Bubble Tea integration
 
-Store terminal dimensions from `tea.WindowSizeMsg`, keep your application state
-in your own model, and construct the renderer from the currently selected theme:
+`tideui` owns no model state. Track dimensions and theme in your own model and
+build a renderer in `View`:
 
 ```go
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -69,262 +67,120 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-    renderer := tideui.NewRenderer(m.theme, tideui.StyleOptions{Density: m.density})
-    return renderer.Render(tideui.Layout{
+    r := tideui.NewRenderer(m.theme, tideui.StyleOptions{Density: m.density})
+    return r.Render(tideui.Layout{
         Width: m.width, Height: m.height, Mode: tideui.ThreeColumn,
         Panes: m.panes(),
     })
 }
 ```
 
-## Layouts
+## Layout modes
 
-| Mode | Description | Configuration fields |
+| Mode | Description | Ratio fields |
 |---|---|---|
-| `StackedRight` | Pane 0 as sidebar, panes 1 and 2 stacked on the right | `SidebarRatio`, `UpperRightRatio` |
+| `StackedRight` | Pane 0 sidebar; panes 1 & 2 stacked on the right | `SidebarRatio`, `UpperRightRatio` |
 | `ThreeColumn` | All three panes side by side | `ColumnRatios` |
-| `SidebarOnly` | Pane 0 as sidebar, pane 1 as full-height main area (pane 2 unused) | `SidebarRatio` |
-| `Tabbed` | Tab bar across the top; the focused pane's content fills the area below | — |
-| `Floating` | Pane 0 as full-screen background; panes 1 and 2 as overlaid floating panels | `FloatWidthRatio`, `FloatHeightRatio` |
+| `SidebarOnly` | Pane 0 sidebar; pane 1 full-height main (pane 2 unused) | `SidebarRatio` |
+| `Tabbed` | Tab bar on top; the focused pane fills the area below | — |
+| `Floating` | Pane 0 as background; panes 1 & 2 as floating panels | `FloatWidthRatio`, `FloatHeightRatio` |
 
 ```go
-// StackedRight with custom ratios
 layout.Mode = tideui.StackedRight
-layout.SidebarRatio    = 0.30
-layout.UpperRightRatio = 0.45
+layout.SidebarRatio, layout.UpperRightRatio = 0.30, 0.45
 
-// ThreeColumn with relative widths
-layout.Mode         = tideui.ThreeColumn
-layout.ColumnRatios = [3]float64{2, 3, 5}
-
-// Floating panels
-layout.Mode             = tideui.Floating
-layout.FloatWidthRatio  = 0.40   // panels occupy 40 % of width
-layout.FloatHeightRatio = 0.50   // split evenly between the two panels
+layout.Mode, layout.ColumnRatios = tideui.ThreeColumn, [3]float64{2, 3, 5}
 ```
 
-In `Tabbed` mode the `Focused` field on each `Pane` selects the active tab
-(first focused pane wins; falls back to pane 0).
+In `Tabbed` mode the first `Focused` pane selects the active tab (falling back to
+pane 0). All ratio fields default to sensible values when left zero.
 
-## Rows and Blocks
-
-### Single-line rows
-
-`RenderRow` renders a single-line list item with optional prefix and
-right-aligned suffix. Use the `Selected` and `Muted` states for highlighting:
+## Theming
 
 ```go
-rows := []string{
-    renderer.RenderRow(tideui.Row{Prefix: "* ", Text: "Selected", Suffix: "3", Selected: true}, 26),
-    renderer.RenderRow(tideui.Row{Prefix: "  ", Text: "Normal"}, 26),
-    renderer.RenderRow(tideui.Row{Prefix: "  ", Text: "Archived", Muted: true}, 26),
-}
+theme, ok := tideui.ThemeByName("nord")   // false if unknown
+for _, t := range tideui.BuiltinThemes { /* ... */ }
 ```
 
-### Multi-line blocks
-
-`RenderBlock` renders a structured item with a header line and an optional
-multi-line body — useful for message threads, notification cards, or any content
-richer than a single row. A `Block` with no `Body` produces byte-identical
-output to the equivalent `RenderRow`.
+Override individual colors without forking a palette:
 
 ```go
-blocks := []string{
-    renderer.RenderBlock(tideui.Block{
-        Prefix: "● ", Header: "alice", Meta: "10:02",
-        Body: "The UI toolkit is looking great.",
-    }, width),
-    renderer.RenderBlock(tideui.Block{
-        Prefix: "● ", Header: "bob", Meta: "10:05",
-        Body:     "Agreed — just added multi-line block support.",
-        Selected: true,
-    }, width),
-    renderer.RenderBlock(tideui.Block{
-        Prefix: "○ ", Header: "alice", Meta: "10:07",
-        Body:  "Does it support scrolling?",
-        Muted: true,
-    }, width),
-}
+theme = tideui.ThemeOverrides{
+    Accent: "#f5c2e7",
+}.Apply(tideui.CatppuccinMocha)
 ```
 
-The `Body` is indented to align with the header text start (after `Prefix`).
-`Selected` and `Muted` apply to the header line; the body always uses
-`DetailBody` styling.
+`Theme.UsesASCII()` reports VT52 mode (ASCII-only glyphs) so callers can adapt.
+`StyleOptions{Density: tideui.Comfortable}` adds spacing; `Compact` removes it.
 
-### Custom detail content
+## Rows and blocks
 
-Use the exported `Styles` for completely custom content inside a pane:
+`RenderRow` draws a single-line list item; `RenderBlock` adds an optional
+multi-line body (a `Block` with no `Body` is byte-identical to the matching
+`Row`). Both support `Selected` and `Muted`:
 
 ```go
-detail := renderer.Styles.DetailTitle.Render("Subject line") + "\n" +
-    renderer.Styles.DetailMeta.Render("alice · 10:02") + "\n\n" +
-    renderer.Styles.DetailBody.Render("Message body text goes here.")
+renderer.RenderRow(tideui.Row{Prefix: "* ", Text: "Inbox", Suffix: "12", Selected: true}, width)
+
+renderer.RenderBlock(tideui.Block{
+    Prefix: "● ", Header: "alice", Meta: "10:02",
+    Body:   "Multi-line body, indented to the header.",
+}, width)
 ```
 
-Focused panes use the theme accent. Set `Pane.Accent` only when an individual
-pane should intentionally override the accent color.
+For fully custom pane content, use the exported `renderer.Styles` (e.g.
+`DetailTitle`, `DetailMeta`, `DetailBody`).
 
-## Scrollable Panes
+## Scrollable panes
 
-Set `Pane.ScrollOffset` to scroll a pane's content by that many lines.
-`PaneScroller` is a convenience helper that manages the integer offset and
-exposes scroll actions:
+Set `Pane.ScrollOffset`, or let `PaneScroller` manage it:
 
 ```go
-type model struct {
-    scrollers [3]tideui.PaneScroller
-    // ...
-}
+m.scroll.ScrollDown(1)            // ScrollUp / ScrollToTop also available
+m.scroll.ClampTo(total, visible)  // optional; renderer clamps out-of-range anyway
 
-// In Update:
-case "j", "down":
-    m.scrollers[m.focus].ScrollDown(1)
-case "k", "up":
-    m.scrollers[m.focus].ScrollUp(1)
-case "g":
-    m.scrollers[m.focus].ScrollToTop()
-
-// In View — pass Offset() to each pane:
-tideui.Pane{
-    Title:        "Tasks",
-    Content:      strings.Join(rows, "\n"),
-    Focused:      m.focus == 1,
-    ScrollOffset: m.scrollers[1].Offset(),
-}
+pane.ScrollOffset = m.scroll.Offset()
 ```
 
-`ClampTo(totalLines, visibleLines)` prevents the scroller from going past the
-last line when you know the content line count. The renderer silently clamps
-out-of-range offsets regardless, so a blank pane is never produced.
+`CanScrollDown(total, visible)` reports whether more content lies below.
 
-`CanScrollDown(totalLines, visibleLines)` reports whether more content is
-hidden below, which is useful for rendering a scroll indicator.
+## Theme picker
 
-## Themes
-
-Choose from `BuiltinThemes`, resolve a saved name with `ThemeByName`, or adjust
-a built-in theme through `ThemeOverrides`:
+A drop-in modal for previewing and confirming themes:
 
 ```go
-renderer := tideui.NewRenderer(tideui.VT100, tideui.StyleOptions{
-    Density: tideui.Compact,
-    Overrides: tideui.ThemeOverrides{
-        Background: "#080b08",
-        Foreground: "#8cff8c",
-        Accent:     "#33ff33",
-    },
-})
+picker := tideui.NewThemePicker(tideui.ThemePickerOptions{InitialTheme: "nord"})
+picker.Open("nord")
+
+switch picker.Update(keyMsg) {
+case tideui.ThemePickerConfirm:
+    m.theme = picker.ConfirmedTheme()
+case tideui.ThemePickerCancel:
+    // preview reverted to the confirmed theme
+}
+
+overlay := picker.Modal(renderer, m.width, m.height) // assign to Layout.Modal
 ```
 
-Built-in theme names:
+The picker previews live as you navigate and restores the confirmed theme on
+cancel.
 
-`catppuccin-mocha`, `catppuccin-latte`, `catppuccin-frappe`,
-`catppuccin-macchiato`, `nord`, `dracula`, `gruvbox-dark`, `gruvbox-light`,
-`tokyo-night`, `tokyo-night-day`, `rose-pine`, `rose-pine-moon`,
-`rose-pine-dawn`, `one-dark`, `magenta-geode`, `coral-sunset`,
-`lavender-fields-forever`, `vt100`, and `vt52`.
+## Terminal background
 
-## Theme Picker
-
-`ThemePicker` provides Tide-derived picker state and modal rendering:
-`j`/`k` and arrow keys preview themes, `enter` confirms, and `esc` reverts.
-Your application still decides when to open it, persists confirmed selections,
-and emits terminal background sequences.
+`tideui` never writes to the terminal itself. To paint the terminal background
+to match the theme, fetch the sequences and emit them from your program:
 
 ```go
-type model struct {
-    width, height int
-    theme         tideui.Theme
-    picker        tideui.ThemePicker
-}
-
-func newModel(savedName string) model {
-    theme, _ := tideui.ThemeByName(savedName)
-    return model{
-        theme:  theme,
-        picker: tideui.NewThemePicker(tideui.ThemePickerOptions{InitialTheme: theme.Name}),
-    }
-}
-
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-    if key, ok := msg.(tea.KeyMsg); ok {
-        if key.String() == "t" && !m.picker.Opened() {
-            m.picker.Open(m.theme.Name)
-        } else if m.picker.Opened() {
-            action := m.picker.Update(key)
-            m.theme = m.picker.PreviewTheme() // rebuild View immediately for live preview
-            if action == tideui.ThemePickerConfirm {
-                saveThemeName(m.picker.ConfirmedTheme().Name)
-            }
-        }
-    }
-    return m, nil
-}
-
-func (m model) View() string {
-    renderer := tideui.NewRenderer(m.theme, tideui.StyleOptions{})
-    layout := tideui.Layout{Width: m.width, Height: m.height, Panes: m.panes()}
-    if m.picker.Opened() {
-        modal := m.picker.Modal(renderer, 40, m.height)
-        layout.Modal = &modal
-    }
-    return renderer.Render(layout)
-}
+set, reset := tideui.TerminalBackgroundSequences(theme)
 ```
 
-## Status Bars and Overlays
+## Design
 
-Provide a `StatusBar` and optional `Overlay` in the layout; `Width` on an
-overlay is the full modal width including its border:
+Applications retain ownership of their model, commands, key routing,
+persistence, and viewport state. `tideui` is purely presentational — it turns
+content + dimensions + a theme into a bounded, framed string. The one exception
+is the optional `ThemePicker`, which manages its own navigation once opened.
 
-```go
-layout.Status = &tideui.StatusBar{Left: "ready", Right: "? help"}
-layout.Modal = &tideui.Overlay{
-    Visible: showHelp,
-    Title:   "HELP",
-    Content: "j/k move\nenter select",
-    Footer:  "esc close",
-    Width:   36,
-}
-```
+## License
 
-## Terminal Background
-
-`TerminalBackgroundSequences` returns OSC sequences for terminals that support
-changing their default background color. It does not write to stdout or the
-terminal; the application decides whether and where to emit the strings.
-
-## API Boundaries
-
-In v1, `tideui` renders presentation primitives. The consuming application owns:
-
-- Bubble Tea `Update` behavior and commands.
-- Application keyboard navigation and focus state outside the theme picker.
-- Scroll offset state (via `PaneScroller` or directly via `Pane.ScrollOffset`).
-- Content formatting and line counts for `ClampTo` / `CanScrollDown`.
-- Persisted theme configuration after picker confirmation.
-- Terminal control sequence output.
-
-## Requirements
-
-The module currently targets Go 1.26 or newer and uses Bubble Tea and Lipgloss.
-
-## Development
-
-```bash
-go test ./...
-go vet ./...
-```
-
-Run the demo with `go run ./cmd/demo`.
-
-| Key | Action |
-|---|---|
-| `tab` / `shift+tab` | Move focus between panes |
-| `j` / `k` | Scroll the focused pane |
-| `g` | Scroll to top |
-| `l` | Cycle layout modes |
-| `t` | Open theme picker |
-| `d` | Toggle density |
-| `o` | Toggle overlay |
-| `q` | Quit |
+MIT.
