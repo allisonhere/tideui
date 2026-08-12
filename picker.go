@@ -86,7 +86,7 @@ func (p ThemePicker) ConfirmedTheme() Theme {
 	return p.themes[p.confirmed]
 }
 
-// Update applies TideMail-compatible picker navigation and completion keys.
+// Update applies the picker's standard navigation and completion keys.
 // After navigation, applications can rebuild their renderer from PreviewTheme.
 func (p *ThemePicker) Update(msg tea.KeyMsg) ThemePickerAction {
 	p.ensureInitialized()

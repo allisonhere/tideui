@@ -171,8 +171,6 @@ func (r Renderer) RenderBlock(block Block, width int) string {
 	return headerLine + "\n" + bodyContent
 }
 
-type paneBorders struct{ top, right, bottom, left bool }
-
 func applyScrollOffset(content string, offset int) string {
 	if offset <= 0 {
 		return content
@@ -194,10 +192,10 @@ func (r Renderer) renderStackedRight(panes [3]Pane, width, height int, sidebarRa
 	upperHeight := ratioSize(height, upperRatio)
 	lowerHeight := height - upperHeight
 
-	left := r.renderPane(panes[0], sidebarWidth, height, paneBorders{right: true})
+	left := r.renderPane(panes[0], sidebarWidth, height)
 	right := lipgloss.JoinVertical(lipgloss.Left,
-		r.renderPane(panes[1], rightWidth, upperHeight, paneBorders{bottom: true}),
-		r.renderPane(panes[2], rightWidth, lowerHeight, paneBorders{}),
+		r.renderPane(panes[1], rightWidth, upperHeight),
+		r.renderPane(panes[2], rightWidth, lowerHeight),
 	)
 	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 }
@@ -205,9 +203,9 @@ func (r Renderer) renderStackedRight(panes [3]Pane, width, height int, sidebarRa
 func (r Renderer) renderThreeColumn(panes [3]Pane, width, height int, ratios [3]float64) string {
 	widths := columnSizes(width, ratios)
 	return lipgloss.JoinHorizontal(lipgloss.Top,
-		r.renderPane(panes[0], widths[0], height, paneBorders{right: true}),
-		r.renderPane(panes[1], widths[1], height, paneBorders{right: true}),
-		r.renderPane(panes[2], widths[2], height, paneBorders{}),
+		r.renderPane(panes[0], widths[0], height),
+		r.renderPane(panes[1], widths[1], height),
+		r.renderPane(panes[2], widths[2], height),
 	)
 }
 
@@ -217,8 +215,8 @@ func (r Renderer) renderSidebarOnly(panes [3]Pane, width, height int, sidebarRat
 	}
 	sidebarWidth := ratioSize(width, sidebarRatio)
 	mainWidth := width - sidebarWidth
-	left := r.renderPane(panes[0], sidebarWidth, height, paneBorders{right: true})
-	right := r.renderPane(panes[1], mainWidth, height, paneBorders{})
+	left := r.renderPane(panes[0], sidebarWidth, height)
+	right := r.renderPane(panes[1], mainWidth, height)
 	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 }
 
@@ -257,37 +255,35 @@ func (r Renderer) renderFloating(panes [3]Pane, width, height int, floatWidthRat
 	panel1Height := ratioSize(height, floatHeightRatio)
 	panel2Height := height - panel1Height
 
-	bg := r.renderPane(panes[0], width, height, paneBorders{})
-	p1 := r.renderPane(panes[1], panelWidth, panel1Height, paneBorders{top: true, right: true, bottom: true, left: true})
-	p2 := r.renderPane(panes[2], panelWidth, panel2Height, paneBorders{top: true, right: true, bottom: true, left: true})
+	bg := r.renderPane(panes[0], width, height)
+	p1 := r.renderPane(panes[1], panelWidth, panel1Height)
+	p2 := r.renderPane(panes[2], panelWidth, panel2Height)
 
 	x := max(0, width-panelWidth)
 	view := placeBoxAt(bg, p1, x, 0, width, height, r.Styles.Theme.Bg)
 	return placeBoxAt(view, p2, x, panel1Height, width, height, r.Styles.Theme.Bg)
 }
 
-func (r Renderer) renderPane(pane Pane, width, height int, borders paneBorders) string {
+// renderPane renders a pane with a full 4-sided border, colored by focus
+// state (see Styles.PaneFrame). Sides are dropped only when the pane is too
+// narrow or short to afford them.
+func (r Renderer) renderPane(pane Pane, width, height int) string {
 	if width <= 0 || height <= 0 {
 		return ""
 	}
-	// Keep separators inside their assigned region on constrained terminals.
-	borders.right = borders.right && width > 1
-	borders.left = borders.left && width > 1
-	borders.bottom = borders.bottom && height > 1
-	borders.top = borders.top && height > 1
+	// Two single-char borders plus at least one content column/row need
+	// width/height > 2; below that, drop the border rather than overflow
+	// the allocated box (max(1, ...) below would otherwise silently grow
+	// past width/height at exactly 2).
+	hasSideBorders := width > 2
+	hasVerticalBorders := height > 2
 	innerWidth := width
 	innerHeight := height
-	if borders.right {
-		innerWidth--
+	if hasSideBorders {
+		innerWidth -= 2
 	}
-	if borders.left {
-		innerWidth--
-	}
-	if borders.bottom {
-		innerHeight--
-	}
-	if borders.top {
-		innerHeight--
+	if hasVerticalBorders {
+		innerHeight -= 2
 	}
 	innerWidth = max(1, innerWidth)
 	innerHeight = max(1, innerHeight)
@@ -302,16 +298,8 @@ func (r Renderer) renderPane(pane Pane, width, height int, borders paneBorders) 
 		content += "\n" + body
 	}
 
-	borderColor := r.Styles.Theme.Border
-	if pane.Focused {
-		borderColor = r.Styles.Theme.BorderFocus
-		if pane.Accent != "" {
-			borderColor = pane.Accent
-		}
-	}
-	return r.Styles.Pane.Copy().
-		Border(paneBorder(r.Styles.PlainUI), borders.top, borders.right, borders.bottom, borders.left).
-		BorderForeground(borderColor).
+	return r.Styles.PaneFrame(pane.Focused, pane.Accent).
+		Border(paneFrameBorder(r.Styles.PlainUI, r.Styles.PaneCorners == RoundCorners), hasVerticalBorders, hasSideBorders, hasVerticalBorders, hasSideBorders).
 		Width(innerWidth).
 		Height(innerHeight).
 		Render(content)
@@ -372,17 +360,32 @@ func (r Renderer) renderOverlay(overlay Overlay, windowWidth int) string {
 	return r.Styles.Overlay.Width(outerWidth).Render(strings.Join(parts, "\n"))
 }
 
+// alignRow lays out prefix, text, and suffix left-to-right within width,
+// truncating each in turn (prefix first, then suffix, then text) so the
+// result never exceeds width. Without truncating suffix, a Hint/Suffix
+// wider than the pane would make the caller's .Width(w).Render(...) word-wrap
+// what is assumed to be a single line, corrupting the surrounding box layout.
 func alignRow(prefix, text, suffix string, width int) string {
 	if width <= 0 {
 		return ""
 	}
-	prefixWidth, suffixWidth := lipgloss.Width(prefix), lipgloss.Width(suffix)
+	prefix = ansi.Truncate(prefix, width, "")
+	remaining := max(0, width-lipgloss.Width(prefix))
+
+	suffixBudget := remaining
+	if suffix != "" {
+		suffixBudget = max(0, remaining-1) // reserve the single-space gap
+	}
+	suffix = ansi.Truncate(suffix, suffixBudget, "")
+	suffixWidth := lipgloss.Width(suffix)
+
 	gap := 0
 	if suffix != "" {
 		gap = 1
 	}
-	textWidth := max(0, width-prefixWidth-suffixWidth-gap)
+	textWidth := max(0, remaining-suffixWidth-gap)
 	text = ansi.Truncate(text, textWidth, "")
+
 	line := prefix + text + strings.Repeat(" ", max(0, textWidth-lipgloss.Width(text)))
 	if suffix != "" {
 		line += " " + suffix

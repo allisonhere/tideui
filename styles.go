@@ -12,19 +12,31 @@ const (
 	Comfortable Density = "comfortable"
 )
 
-// StyleOptions controls density and optional theme color replacements.
+// PaneCorners selects the glyph set used for pane border corners.
+type PaneCorners string
+
+const (
+	// SquareCorners renders pane borders with sharp corners. This is the default.
+	SquareCorners PaneCorners = "square"
+	// RoundCorners renders pane borders with rounded corners.
+	RoundCorners PaneCorners = "round"
+)
+
+// StyleOptions controls density, pane corner style, and optional theme color replacements.
 type StyleOptions struct {
-	Density   Density
-	Overrides ThemeOverrides
+	Density     Density
+	PaneCorners PaneCorners
+	Overrides   ThemeOverrides
 }
 
 // Styles exposes resolved Lipgloss styles for composing application content.
 // All styles carry the correct theme background so rendering any piece of
 // content inside a pane produces a cohesive, uniformly coloured surface.
 type Styles struct {
-	Theme   Theme  // resolved theme after any ThemeOverrides are applied
-	PlainUI bool   // true when the theme uses ASCII borders (e.g. VT52)
-	Density Density
+	Theme       Theme // resolved theme after any ThemeOverrides are applied
+	PlainUI     bool  // true when the theme uses ASCII borders (e.g. VT52)
+	Density     Density
+	PaneCorners PaneCorners // normalized; square unless RoundCorners was requested
 
 	// Pane chrome — used internally; available for custom pane-like surfaces.
 	Pane               lipgloss.Style // pane background fill
@@ -73,6 +85,13 @@ func normalizeDensity(d Density) Density {
 	return Compact
 }
 
+func normalizePaneCorners(c PaneCorners) PaneCorners {
+	if c == RoundCorners {
+		return RoundCorners
+	}
+	return SquareCorners
+}
+
 // ListItemLineStride returns the terminal-line height expected per rendered row.
 func (s Styles) ListItemLineStride() int {
 	if s.Density == Comfortable {
@@ -103,10 +122,36 @@ func overlayBorder(plain bool) lipgloss.Border {
 	return lipgloss.RoundedBorder()
 }
 
+// paneFrameBorder picks the pane border glyph set: rounded corners when
+// requested, falling back to ASCII for the plain VT52 theme either way.
+func paneFrameBorder(plain bool, rounded bool) lipgloss.Border {
+	if rounded {
+		return overlayBorder(plain)
+	}
+	return paneBorder(plain)
+}
+
+// PaneFrame returns a full 4-sided border box for a pane, colored to signal
+// whether that pane currently has focus. accent overrides the theme's
+// BorderFocus color when the pane supplies its own (see Pane.Accent).
+func (s Styles) PaneFrame(focused bool, accent lipgloss.Color) lipgloss.Style {
+	style := s.Pane.Copy().
+		Border(paneFrameBorder(s.PlainUI, s.PaneCorners == RoundCorners)).
+		AlignVertical(lipgloss.Top)
+	if !focused {
+		return style.BorderForeground(s.Theme.Border)
+	}
+	if accent == "" {
+		accent = s.Theme.BorderFocus
+	}
+	return style.BorderForeground(readableText(accent, s.Theme.Bg, paneFocusMinContrast))
+}
+
 // BuildStyles resolves a theme and options into reusable Lipgloss styles.
 func BuildStyles(base Theme, options StyleOptions) Styles {
 	t := options.Overrides.Apply(base)
 	density := normalizeDensity(options.Density)
+	paneCorners := normalizePaneCorners(options.PaneCorners)
 	plain := t.UsesASCII()
 	itemPadding := func(style lipgloss.Style) lipgloss.Style {
 		if density == Comfortable {
@@ -131,16 +176,13 @@ func BuildStyles(base Theme, options StyleOptions) Styles {
 		titleBottomMargin = 0
 	}
 
-	selectedBG := adjustLightness(t.Bg, 0.12)
-	if !isDark(t.Bg) {
-		selectedBG = adjustLightness(t.Bg, -0.12)
-	}
+	selectedBG := selectionBgForRatio(t.Bg, selectedBgMinContrast)
 	focusBG := focusLineBg(t)
 	modalFG := readableText(t.Fg, modalBG, 4.5)
 	modalMuted := mutedText(modalFG, modalBG)
 
 	return Styles{
-		Theme: t, PlainUI: plain, Density: density,
+		Theme: t, PlainUI: plain, Density: density, PaneCorners: paneCorners,
 		Pane: lipgloss.NewStyle().Background(t.Bg).BorderBackground(t.Bg),
 		PaneHeaderActive: lipgloss.NewStyle().Background(t.BorderFocus).
 			Foreground(readableText(t.Fg, t.BorderFocus, 4.5)).Bold(true),

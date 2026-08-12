@@ -28,8 +28,10 @@ go get github.com/allisonhere/tideui
 - **Five layout modes** — `StackedRight`, `ThreeColumn`, `SidebarOnly`, `Tabbed`, and `Floating`, each with tunable ratios.
 - **Nineteen built-in palettes** (Catppuccin, Nord, Dracula, Gruvbox, and more) with per-field background/foreground/accent overrides.
 - **Themed chrome** — pane headers, status bars, centered modal overlays, and a ready-made theme picker.
+- **Full-border pane focus** — every pane renders a 4-sided border colored by focus state, contrast-boosted to a 7:1 floor (square or round corners) so the focused pane is never hard to spot.
 - **List primitives** — single-line `Row` and multi-line `Block` with selected/muted states.
 - **Per-pane scrolling** via `Pane.ScrollOffset` and the `PaneScroller` helper.
+- **Resizable panes** via the `PaneRatio` helper, for shift+arrow-style ratio adjustment.
 - **Density + accessibility** — compact/comfortable spacing and a VT52 ASCII mode.
 - **Bounded output** — never exceeds the requested terminal dimensions, down to tiny windows.
 - **Terminal background control** — exposes the escape sequences so the app, not the library, writes to the terminal.
@@ -45,9 +47,9 @@ renderer := tideui.NewRenderer(theme, tideui.StyleOptions{Density: tideui.Compac
 view := renderer.Render(tideui.Layout{
     Width: 80, Height: 24, Mode: tideui.StackedRight,
     Panes: [3]tideui.Pane{
-        {Title: "Mailboxes", Content: "Inbox\nArchive", Focused: true},
-        {Title: "Messages",  Content: "Welcome to tideui"},
-        {Title: "Preview",   Content: "Application-owned content."},
+        {Title: "Sidebar", Content: "Item one\nItem two", Focused: true},
+        {Title: "List",    Content: "Welcome to tideui"},
+        {Title: "Preview", Content: "Application-owned content."},
     },
     Status: &tideui.StatusBar{Left: "ready", Right: "? help"},
 })
@@ -113,6 +115,21 @@ theme = tideui.ThemeOverrides{
 `Theme.UsesASCII()` reports VT52 mode (ASCII-only glyphs) so callers can adapt.
 `StyleOptions{Density: tideui.Comfortable}` adds spacing; `Compact` removes it.
 
+## Pane borders
+
+Every pane renders a full 4-sided border, colored by theme `Border` when
+idle and `BorderFocus` (or `Pane.Accent`, if set) when focused. The focused
+color is nudged to clear a 7:1 contrast floor against the theme background,
+and the selected-row background (`Styles.ItemSelected`) is nudged to a 3:1
+floor — both walk up in lightness steps rather than relying on a fixed
+delta, so neither goes unnoticeable on unusually light or dark themes.
+
+Corners default to square; opt into rounded corners per-renderer:
+
+```go
+tideui.NewRenderer(theme, tideui.StyleOptions{PaneCorners: tideui.RoundCorners})
+```
+
 ## Rows and blocks
 
 `RenderRow` draws a single-line list item; `RenderBlock` adds an optional
@@ -120,7 +137,7 @@ multi-line body (a `Block` with no `Body` is byte-identical to the matching
 `Row`). Both support `Selected` and `Muted`:
 
 ```go
-renderer.RenderRow(tideui.Row{Prefix: "* ", Text: "Inbox", Suffix: "12", Selected: true}, width)
+renderer.RenderRow(tideui.Row{Prefix: "* ", Text: "Item", Suffix: "12", Selected: true}, width)
 
 renderer.RenderBlock(tideui.Block{
     Prefix: "● ", Header: "alice", Meta: "10:02",
@@ -143,6 +160,28 @@ pane.ScrollOffset = m.scroll.Offset()
 ```
 
 `CanScrollDown(total, visible)` reports whether more content lies below.
+
+## Resizable panes
+
+`tideui` still leaves key routing to the application, but `PaneRatio` owns
+the bounds and step math for an adjustable split — wire it to your own
+shift+arrow (or any other) key handling:
+
+```go
+m.sidebarRatio = tideui.NewPaneRatio(tideui.PaneRatioOptions{
+    Initial: 0.30, Min: 0.15, Max: 0.5, Step: 0.02,
+})
+
+// in Update, on your app's own resize keys:
+m.sidebarRatio.Shrink() // e.g. shift+left
+m.sidebarRatio.Grow()   // e.g. shift+right
+
+// in View:
+layout.SidebarRatio = m.sidebarRatio.Value()
+```
+
+Hold one `PaneRatio` per adjustable split — `SidebarRatio`, `UpperRightRatio`,
+a `ColumnRatios` entry, or a `Floating` ratio all work the same way.
 
 ## Theme picker
 

@@ -9,6 +9,16 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// paneFocusMinContrast is the contrast floor for the focused-pane border —
+// deliberately higher than the general 4.5 text-readability bar so the focus
+// highlight remains the strongest-contrast element in the UI.
+const paneFocusMinContrast = 7.0
+
+// selectedBgMinContrast is the contrast floor a selected row's background
+// must clear against the pane background, so the current selection reads as
+// visually distinct rather than a faint tint.
+const selectedBgMinContrast = 3.0
+
 func hexToRGB(c lipgloss.Color) (r, g, b float64, ok bool) {
 	s := strings.TrimPrefix(string(c), "#")
 	if len(s) != 6 {
@@ -86,6 +96,32 @@ func focusLineBg(t Theme) lipgloss.Color {
 	}
 	if contrastRatio(t.Selected, t.Bg) >= 1.5 {
 		return t.Selected
+	}
+	return cur
+}
+
+// selectionBgForRatio nudges bg's lightness until it reaches minRatio contrast
+// against bg itself, so the selected-row highlight actually stands out instead
+// of relying on a fixed delta that goes unnoticeable on some themes (a plain
+// lightness bump on an already-light or already-dark background can land well
+// under 2:1).
+func selectionBgForRatio(bg lipgloss.Color, minRatio float64) lipgloss.Color {
+	const step = 0.03
+	const maxSteps = 30
+	dir := step
+	if !isDark(bg) {
+		dir = -step
+	}
+	cur := bg
+	for range maxSteps {
+		next := adjustLightness(cur, dir)
+		if next == cur {
+			break
+		}
+		cur = next
+		if contrastRatio(cur, bg) >= minRatio {
+			return cur
+		}
 	}
 	return cur
 }

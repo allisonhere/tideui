@@ -45,6 +45,115 @@ func TestRenderStackedRightFitsWindow(t *testing.T) {
 	}
 }
 
+func TestAlignRowNeverExceedsWidthEvenWithLongSuffix(t *testing.T) {
+	cases := []struct{ prefix, text, suffix string }{
+		{"  ", "x", "way-too-long-suffix-for-the-width"},
+		{"way-too-long-prefix-for-the-width", "x", "y"},
+		{"", "", "still-too-long"},
+	}
+	for width := 0; width <= 10; width++ {
+		for _, tc := range cases {
+			line := alignRow(tc.prefix, tc.text, tc.suffix, width)
+			if got := lipgloss.Width(line); got != width {
+				t.Errorf("alignRow(%q,%q,%q,%d) width = %d, want %d", tc.prefix, tc.text, tc.suffix, width, got, width)
+			}
+		}
+	}
+}
+
+func TestPaneHeaderWithLongHintStaysOneLine(t *testing.T) {
+	// Regression: alignRow used to leave an over-wide Hint untruncated,
+	// which made the header's .Width(w).Render(...) word-wrap it into
+	// several lines and corrupt the surrounding pane's fixed-height layout.
+	renderer := NewRenderer(CatppuccinMocha, StyleOptions{Density: Compact})
+	layout := testLayout(StackedRight)
+	layout.Width, layout.Height = 20, 10
+	layout.Panes[0].Hint = "a-hint-string-much-longer-than-the-pane-is-wide"
+	view := renderer.Render(layout)
+	assertDimensions(t, view, 20, 10)
+}
+
+func TestRenderRowWithLongSuffixStaysOneLine(t *testing.T) {
+	renderer := NewRenderer(CatppuccinMocha, StyleOptions{Density: Compact})
+	row := renderer.RenderRow(Row{Prefix: "* ", Text: "x", Suffix: "way-too-long-suffix"}, 6)
+	if strings.Contains(row, "\n") {
+		t.Fatalf("RenderRow wrapped onto multiple lines: %q", row)
+	}
+	if got := lipgloss.Width(row); got != 6 {
+		t.Fatalf("RenderRow width = %d, want 6", got)
+	}
+}
+
+func TestRenderPaneNeverExceedsAllocatedBox(t *testing.T) {
+	// Regression: at width==2 or height==2, turning on both border sides
+	// while still guaranteeing >=1 content column/row previously overflowed
+	// the allocated box by one cell in each direction.
+	renderer := NewRenderer(CatppuccinMocha, StyleOptions{Density: Compact})
+	pane := Pane{Title: "X", Content: "y"}
+	for width := 1; width <= 6; width++ {
+		for height := 1; height <= 6; height++ {
+			out := renderer.renderPane(pane, width, height)
+			lines := strings.Split(out, "\n")
+			if len(lines) != height {
+				t.Fatalf("width=%d height=%d: rendered %d lines, want %d", width, height, len(lines), height)
+			}
+			for _, line := range lines {
+				if got := lipgloss.Width(line); got != width {
+					t.Fatalf("width=%d height=%d: rendered line width = %d, want %d", width, height, got, width)
+				}
+			}
+		}
+	}
+}
+
+func TestEveryPaneRendersAFullFourSidedBorder(t *testing.T) {
+	renderer := NewRenderer(CatppuccinMocha, StyleOptions{Density: Compact})
+	// Side-by-side modes: three (or two, for SidebarOnly) independently
+	// bordered panes, each contributing four distinct corner glyphs —
+	// including the panes that previously shared or omitted an edge.
+	cases := []struct {
+		mode        LayoutMode
+		wantCorners int
+	}{
+		{StackedRight, 12},
+		{ThreeColumn, 12},
+		{SidebarOnly, 8}, // pane 2 is unused in this mode
+	}
+	for _, tc := range cases {
+		plain := ansi.Strip(renderer.Render(testLayout(tc.mode)))
+		corners := strings.Count(plain, "┌") + strings.Count(plain, "┐") +
+			strings.Count(plain, "└") + strings.Count(plain, "┘")
+		if corners != tc.wantCorners {
+			t.Errorf("mode %v: corner glyph count = %d, want %d", tc.mode, corners, tc.wantCorners)
+		}
+	}
+}
+
+func TestFloatingBackgroundPaneKeepsItsOwnBorder(t *testing.T) {
+	// The background pane in Floating mode previously had no border at all.
+	// Its left edge isn't covered by the floating panels (which sit on the
+	// right), so its left-side corners should now be visible.
+	renderer := NewRenderer(CatppuccinMocha, StyleOptions{Density: Compact})
+	lines := strings.Split(ansi.Strip(renderer.Render(testLayout(Floating))), "\n")
+	if !strings.HasPrefix(lines[0], "┌") {
+		t.Errorf("expected background pane top-left corner, got line 0 = %q", lines[0])
+	}
+	last := lines[len(lines)-2] // last line is the status bar
+	if !strings.HasPrefix(last, "└") {
+		t.Errorf("expected background pane bottom-left corner, got last body line = %q", last)
+	}
+}
+
+func TestPaneCornersRoundUsesRoundedGlyphs(t *testing.T) {
+	renderer := NewRenderer(CatppuccinMocha, StyleOptions{Density: Compact, PaneCorners: RoundCorners})
+	view := ansi.Strip(renderer.Render(testLayout(StackedRight)))
+	for _, glyph := range []string{"╭", "╮", "╰", "╯"} {
+		if !strings.Contains(view, glyph) {
+			t.Errorf("expected rounded corner glyph %q in output", glyph)
+		}
+	}
+}
+
 func TestRenderThreeColumnFitsWindow(t *testing.T) {
 	renderer := NewRenderer(GruvboxLight, StyleOptions{Density: Comfortable})
 	layout := testLayout(ThreeColumn)

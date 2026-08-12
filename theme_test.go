@@ -53,6 +53,45 @@ func TestBuildStylesUsesConfiguredOverlaySurface(t *testing.T) {
 	}
 }
 
+func TestPaneFrameFocusBorderMeetsContrastFloor(t *testing.T) {
+	for _, theme := range BuiltinThemes {
+		styles := BuildStyles(theme, StyleOptions{Density: Compact})
+		focused := styles.PaneFrame(true, "")
+		fg := lipgloss.Color(focused.GetBorderTopForeground().(lipgloss.Color))
+		if ratio := contrastRatio(fg, styles.Theme.Bg); ratio < paneFocusMinContrast {
+			t.Errorf("%s focused pane border contrast %.2f is below %.1f", theme.Name, ratio, paneFocusMinContrast)
+		}
+
+		override := lipgloss.Color("#ff00ff")
+		accented := styles.PaneFrame(true, override)
+		accentFg := lipgloss.Color(accented.GetBorderTopForeground().(lipgloss.Color))
+		if ratio := contrastRatio(accentFg, styles.Theme.Bg); ratio < paneFocusMinContrast {
+			t.Errorf("%s accented focused pane border contrast %.2f is below %.1f", theme.Name, ratio, paneFocusMinContrast)
+		}
+	}
+}
+
+func TestItemSelectedBackgroundMeetsContrastFloor(t *testing.T) {
+	for _, theme := range BuiltinThemes {
+		styles := BuildStyles(theme, StyleOptions{Density: Compact})
+		bg := lipgloss.Color(styles.ItemSelected.GetBackground().(lipgloss.Color))
+		if ratio := contrastRatio(bg, styles.Theme.Bg); ratio < selectedBgMinContrast {
+			t.Errorf("%s selected row background contrast %.2f is below %.1f", theme.Name, ratio, selectedBgMinContrast)
+		}
+	}
+}
+
+func TestPaneCornersDefaultSquareAndAcceptsRound(t *testing.T) {
+	square := BuildStyles(CatppuccinMocha, StyleOptions{})
+	if square.PaneCorners != SquareCorners {
+		t.Fatalf("PaneCorners default = %v, want %v", square.PaneCorners, SquareCorners)
+	}
+	round := BuildStyles(CatppuccinMocha, StyleOptions{PaneCorners: RoundCorners})
+	if round.PaneCorners != RoundCorners {
+		t.Fatalf("PaneCorners = %v, want %v", round.PaneCorners, RoundCorners)
+	}
+}
+
 func TestStylesMaintainReadableContrast(t *testing.T) {
 	for _, theme := range BuiltinThemes {
 		styles := BuildStyles(theme, StyleOptions{Density: Compact})
