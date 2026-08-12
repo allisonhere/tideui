@@ -28,6 +28,7 @@ go get github.com/allisonhere/tideui
 - **Five layout modes** — `StackedRight`, `ThreeColumn`, `SidebarOnly`, `Tabbed`, and `Floating`, each with tunable ratios.
 - **Nineteen built-in palettes** (Catppuccin, Nord, Dracula, Gruvbox, and more) with per-field background/foreground/accent overrides.
 - **Themed chrome** — pane headers, status bars, centered modal overlays, and a ready-made theme picker.
+- **Soft modal panels** — Tide-family modal chrome with embedded border titles, quiet hint footers, and rail-focused rows.
 - **Full-border pane focus** — every pane renders a 4-sided border colored by focus state, contrast-boosted to a 7:1 floor (square or round corners) so the focused pane is never hard to spot.
 - **List primitives** — single-line `Row` and multi-line `Block` with selected/muted states.
 - **Per-pane scrolling** via `Pane.ScrollOffset` and the `PaneScroller` helper.
@@ -203,6 +204,31 @@ overlay := picker.Modal(renderer, m.width, m.height) // assign to Layout.Modal
 
 The picker previews live as you navigate and restores the confirmed theme on
 cancel.
+
+Use the soft-panel variant for the newer Tide-family modal style:
+
+```go
+overlay := picker.SoftModal(renderer, 42, m.height, "tidedock")
+```
+
+## Soft panels
+
+Soft panels render the newer Tide-family modal chrome with the app prefix and
+title embedded in the top border:
+
+```go
+content := renderer.Styles.OverlayBody.Width(36).Render("Ready")
+overlay := renderer.SoftPanelOverlay(tideui.SoftPanel{
+    Prefix: "tidedock",
+    Title: "status",
+    Content: content,
+    Width: 40,
+})
+layout.Modal = &overlay
+```
+
+Use `RenderSoftRow` for command palettes and picker rows, and
+`RenderSoftHints` for quiet lowercase footer hints.
 
 ## Terminal background
 

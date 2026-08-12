@@ -160,6 +160,39 @@ func (p ThemePicker) Modal(renderer Renderer, width, height int) Overlay {
 	}
 }
 
+// SoftModal renders the picker as a soft-panel Overlay for assignment to
+// Layout.Modal. Prefix labels the app family member in the top border; empty
+// uses "tide".
+func (p ThemePicker) SoftModal(renderer Renderer, width, height int, prefix string) Overlay {
+	p.ensureReadable()
+	if width <= 0 {
+		width = 40
+	}
+	if prefix == "" {
+		prefix = "tide"
+	}
+	rowsAvailable := max(1, height-4)
+	first, last := visibleRange(len(p.themes), p.cursor, rowsAvailable)
+	innerWidth := max(1, width-4)
+	rows := make([]string, 0, last-first+1)
+	for index := first; index < last; index++ {
+		rows = append(rows, renderer.RenderSoftRow(SoftRow{
+			Text:     p.themes[index].Name,
+			Selected: index == p.cursor,
+		}, innerWidth))
+	}
+	rows = append(rows, "", renderer.RenderSoftHints(innerWidth,
+		SoftHint{Key: "enter", Label: "confirm"},
+		SoftHint{Key: "esc", Label: "revert"},
+	))
+	return renderer.SoftPanelOverlay(SoftPanel{
+		Prefix:  prefix,
+		Title:   strings.ToLower(p.title),
+		Content: renderer.RenderSoftBody(width, strings.Join(rows, "\n")),
+		Width:   width,
+	})
+}
+
 func (p *ThemePicker) ensureInitialized() {
 	if len(p.themes) != 0 {
 		return

@@ -46,6 +46,7 @@ type Overlay struct {
 	Content string
 	Footer  string
 	Width   int
+	Raw     bool // when true, Content is already fully rendered modal chrome
 }
 
 // Layout supplies terminal dimensions, three panes, and optional shell chrome.
@@ -340,6 +341,9 @@ func (r Renderer) renderStatus(status StatusBar, width int) string {
 }
 
 func (r Renderer) renderOverlay(overlay Overlay, windowWidth int) string {
+	if overlay.Raw {
+		return overlay.Content
+	}
 	width := overlay.Width
 	if width <= 0 {
 		width = min(64, max(16, windowWidth-6))
