@@ -32,12 +32,14 @@ type SoftRow struct {
 }
 
 type softChrome struct {
-	baseBg lipgloss.Color
-	accent lipgloss.Color
-	border lipgloss.Color
-	text   lipgloss.Color
-	muted  lipgloss.Color
-	plain  bool
+	baseBg       lipgloss.Color
+	accent       lipgloss.Color
+	border       lipgloss.Color
+	text         lipgloss.Color
+	muted        lipgloss.Color
+	selectedBg   lipgloss.Color
+	selectedText lipgloss.Color
+	plain        bool
 }
 
 func newSoftChrome(styles Styles) softChrome {
@@ -57,13 +59,16 @@ func newSoftChrome(styles Styles) softChrome {
 		border = accent
 	}
 	text := readableText(styles.Theme.Fg, baseBg, 4.5)
+	selectedBg := selectionBgForRatio(baseBg, selectedBgMinContrast)
 	return softChrome{
-		baseBg: baseBg,
-		accent: accent,
-		border: border,
-		text:   text,
-		muted:  mutedText(text, baseBg),
-		plain:  styles.PlainUI,
+		baseBg:       baseBg,
+		accent:       accent,
+		border:       border,
+		text:         text,
+		muted:        mutedText(text, baseBg),
+		selectedBg:   selectedBg,
+		selectedText: readableText(accent, selectedBg, 4.5),
+		plain:        styles.PlainUI,
 	}
 }
 
@@ -171,13 +176,17 @@ func (r Renderer) RenderSoftRow(row SoftRow, width int) string {
 	width = max(1, width)
 	bg := chrome.baseBg
 	fg := chrome.text
-	if row.Muted {
+	switch {
+	case row.Selected:
+		bg = chrome.selectedBg
+		fg = chrome.selectedText
+	case row.Muted:
 		fg = chrome.muted
 	}
 	rail := r.SoftRail(row.Selected, bg)
 	contentW := max(1, width-lipgloss.Width(rail))
 	content := alignRow(row.Prefix, row.Text, row.Suffix, contentW)
-	content = lipgloss.NewStyle().Background(bg).Foreground(fg).Render(content)
+	content = lipgloss.NewStyle().Background(bg).Foreground(fg).Bold(row.Selected).Render(content)
 	return rail + padStyled(content, contentW, bg)
 }
 

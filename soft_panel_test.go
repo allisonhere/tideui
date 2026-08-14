@@ -1,6 +1,7 @@
 package tideui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -66,6 +67,37 @@ func TestRenderSoftRowUsesRailAndFitsWidth(t *testing.T) {
 	if !strings.Contains(ansi.Strip(selected), "▌") {
 		t.Fatalf("selected row missing rail: %q", ansi.Strip(selected))
 	}
+}
+
+func TestRenderSoftRowHighlightsSelectedRowBackground(t *testing.T) {
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	defer lipgloss.SetColorProfile(termenv.Ascii)
+
+	renderer := NewRenderer(Dracula, StyleOptions{Density: Compact})
+	chrome := newSoftChrome(renderer.Styles)
+	if chrome.selectedBg == chrome.baseBg {
+		t.Fatalf("selectedBg should differ from baseBg so the focused row is visibly highlighted")
+	}
+
+	selected := renderer.RenderSoftRow(SoftRow{Text: "Choose theme", Selected: true}, 26)
+	unselected := renderer.RenderSoftRow(SoftRow{Text: "Help", Selected: false}, 26)
+
+	selectedSGR := backgroundSGR(t, chrome.selectedBg)
+	if !strings.Contains(selected, selectedSGR) {
+		t.Fatalf("selected row does not carry the selected background SGR %q:\n%q", selectedSGR, selected)
+	}
+	if strings.Contains(unselected, selectedSGR) {
+		t.Fatalf("unselected row unexpectedly carries the selected background SGR %q:\n%q", selectedSGR, unselected)
+	}
+}
+
+func backgroundSGR(t *testing.T, c lipgloss.Color) string {
+	t.Helper()
+	r, g, b, ok := hexToRGB(c)
+	if !ok {
+		t.Fatalf("hexToRGB(%q) failed", c)
+	}
+	return fmt.Sprintf("48;2;%d;%d;%d", int(r*255+0.5), int(g*255+0.5), int(b*255+0.5))
 }
 
 func TestRenderSoftBodyDoesNotWrapStyledLongRows(t *testing.T) {
