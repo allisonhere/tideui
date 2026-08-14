@@ -109,7 +109,7 @@ func (r Renderer) Render(layout Layout) string {
 		view = lipgloss.JoinVertical(lipgloss.Left, main, r.renderStatus(*layout.Status, layout.Width))
 	}
 	if layout.Modal != nil && layout.Modal.Visible {
-		view = overlayOnBase(view, r.renderOverlay(*layout.Modal, layout.Width), layout.Width, layout.Height, r.Styles.Theme.Bg)
+		view = overlayOnBase(view, r.renderOverlay(*layout.Modal, layout.Width), layout.Width, layout.Height, r.Styles.Theme.Bg, r.Styles.ModalShadow, r.Styles.ModalShadowColor)
 	}
 	return clampView(view, layout.Width, layout.Height, r.Styles.Theme.Bg)
 }
@@ -467,7 +467,13 @@ func clampView(view string, width, height int, background lipgloss.Color) string
 	return strings.Join(lines, "\n")
 }
 
-func overlayOnBase(base, box string, width, height int, background lipgloss.Color) string {
+// shadowOffsetX and shadowOffsetY position the drop shadow relative to the
+// modal's own top-left corner. Both positive (down-and-right) is the
+// classic look: the modal covers all of the shadow rectangle except a
+// bottom-and-right sliver, which reads as the shadow.
+const shadowOffsetX, shadowOffsetY = 2, 1
+
+func overlayOnBase(base, box string, width, height int, background lipgloss.Color, shadow bool, shadowBg lipgloss.Color) string {
 	boxLines := strings.Split(box, "\n")
 	boxWidth := 0
 	for _, line := range boxLines {
@@ -475,7 +481,24 @@ func overlayOnBase(base, box string, width, height int, background lipgloss.Colo
 	}
 	x := max(0, (width-boxWidth)/2)
 	y := max(0, (height-len(boxLines))/2)
+	if shadow {
+		base = placeBoxAt(base, shadowBox(boxWidth, len(boxLines), shadowBg), x+shadowOffsetX, y+shadowOffsetY, width, height, background)
+	}
 	return placeBoxAt(base, box, x, y, width, height, background)
+}
+
+// shadowBox renders a flat, opaque rectangle of the given size in bg — the
+// drop shadow itself. It's not a true alpha blend of whatever's already at
+// those cells (the string-splicing compositor here doesn't inspect the
+// underlying SGR to mix colors), just a solid rectangle offset behind the
+// modal, which is the standard technique terminal UIs use for this.
+func shadowBox(width, height int, bg lipgloss.Color) string {
+	line := lipgloss.NewStyle().Background(bg).Render(strings.Repeat(" ", width))
+	lines := make([]string, height)
+	for i := range lines {
+		lines[i] = line
+	}
+	return strings.Join(lines, "\n")
 }
 
 func placeBoxAt(base, box string, x, y, totalWidth, totalHeight int, bg lipgloss.Color) string {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/muesli/termenv"
 )
 
 func testLayout(mode LayoutMode) Layout {
@@ -227,6 +228,27 @@ func TestRenderOverlayCoversBaseWithoutChangingDimensions(t *testing.T) {
 		if !strings.Contains(plain, part) {
 			t.Fatalf("expected overlay to include %q", part)
 		}
+	}
+}
+
+func TestRenderDrawsModalShadowOnlyWhenEnabled(t *testing.T) {
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	defer lipgloss.SetColorProfile(termenv.Ascii)
+
+	layout := testLayout(StackedRight)
+	layout.Modal = &Overlay{Visible: true, Title: "Confirm", Content: "Proceed?", Footer: "enter apply", Width: 24}
+
+	withShadow := NewRenderer(CatppuccinMocha, StyleOptions{Density: Compact, ModalShadow: true})
+	shadowSGR := backgroundSGR(t, withShadow.Styles.ModalShadowColor)
+	viewWithShadow := withShadow.Render(layout)
+	if !strings.Contains(viewWithShadow, shadowSGR) {
+		t.Fatalf("expected rendered view to contain the shadow background SGR %q", shadowSGR)
+	}
+
+	withoutShadow := NewRenderer(CatppuccinMocha, StyleOptions{Density: Compact})
+	viewWithoutShadow := withoutShadow.Render(layout)
+	if strings.Contains(viewWithoutShadow, shadowSGR) {
+		t.Fatalf("expected no shadow background SGR %q when ModalShadow is unset", shadowSGR)
 	}
 }
 

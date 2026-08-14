@@ -19,6 +19,11 @@ const paneFocusMinContrast = 7.0
 // visually distinct rather than a faint tint.
 const selectedBgMinContrast = 3.0
 
+// shadowBgMinContrast is the contrast floor a modal drop shadow's
+// background must clear against the page background it sits on, so the
+// shadow reads as a shadow instead of an invisible near-match.
+const shadowBgMinContrast = 1.6
+
 func hexToRGB(c lipgloss.Color) (r, g, b float64, ok bool) {
 	s := strings.TrimPrefix(string(c), "#")
 	if len(s) != 6 {
@@ -120,6 +125,27 @@ func selectionBgForRatio(bg lipgloss.Color, minRatio float64) lipgloss.Color {
 		}
 		cur = next
 		if contrastRatio(cur, bg) >= minRatio {
+			return cur
+		}
+	}
+	return cur
+}
+
+// shadowColor darkens bg until it clears shadowBgMinContrast against bg
+// itself, always in the darkening direction regardless of theme — unlike
+// selectionBgForRatio, a shadow should always read as "darker," not
+// "further away," on both light and dark themes.
+func shadowColor(bg lipgloss.Color) lipgloss.Color {
+	const step = 0.03
+	const maxSteps = 30
+	cur := bg
+	for range maxSteps {
+		next := adjustLightness(cur, -step)
+		if next == cur {
+			break
+		}
+		cur = next
+		if contrastRatio(cur, bg) >= shadowBgMinContrast {
 			return cur
 		}
 	}

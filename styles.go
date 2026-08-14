@@ -27,6 +27,10 @@ type StyleOptions struct {
 	Density     Density
 	PaneCorners PaneCorners
 	Overrides   ThemeOverrides
+	// ModalShadow draws a small drop shadow behind every modal overlay when
+	// true. Off by default so existing consumers are unaffected unless they
+	// opt in.
+	ModalShadow bool
 }
 
 // Styles exposes resolved Lipgloss styles for composing application content.
@@ -37,6 +41,12 @@ type Styles struct {
 	PlainUI     bool  // true when the theme uses ASCII borders (e.g. VT52)
 	Density     Density
 	PaneCorners PaneCorners // normalized; square unless RoundCorners was requested
+
+	// ModalShadow and ModalShadowColor control the modal drop shadow drawn
+	// by Renderer.Render. ModalShadowColor is resolved once here (from the
+	// theme background) rather than recomputed on every render.
+	ModalShadow      bool
+	ModalShadowColor lipgloss.Color
 
 	// Pane chrome — used internally; available for custom pane-like surfaces.
 	Pane               lipgloss.Style // pane background fill
@@ -178,12 +188,14 @@ func BuildStyles(base Theme, options StyleOptions) Styles {
 	}
 
 	selectedBG := selectionBgForRatio(t.Bg, selectedBgMinContrast)
+	shadowBG := shadowColor(t.Bg)
 	focusBG := focusLineBg(t)
 	modalFG := readableText(t.Fg, modalBG, 4.5)
 	modalMuted := mutedText(modalFG, modalBG)
 
 	return Styles{
 		Theme: t, PlainUI: plain, Density: density, PaneCorners: paneCorners,
+		ModalShadow: options.ModalShadow, ModalShadowColor: shadowBG,
 		Pane: lipgloss.NewStyle().Background(t.Bg).BorderBackground(t.Bg),
 		PaneHeaderActive: lipgloss.NewStyle().Background(t.BorderFocus).
 			Foreground(readableText(t.Fg, t.BorderFocus, 4.5)).Bold(true),
