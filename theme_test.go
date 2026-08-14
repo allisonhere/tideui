@@ -37,6 +37,32 @@ func TestVT52BuildsPlainPresentation(t *testing.T) {
 	}
 }
 
+// TestInputStylesFillBorderBackground guards against a real bug: the input
+// field styles set Background for the content area and BorderForeground for
+// the border color, but never BorderBackground — lipgloss leaves a border's
+// background unset unless told otherwise, so the ┌─┐/│ │/└─┘ frame around a
+// text field rendered with no background (the raw terminal default) even
+// though the interior correctly used the modal surface color.
+func TestInputStylesFillBorderBackground(t *testing.T) {
+	styles := BuildStyles(CatppuccinMocha, StyleOptions{Density: Compact})
+	overlaySurface := modalSurface(CatppuccinMocha)
+	for name, style := range map[string]lipgloss.Style{
+		"InputFocused": styles.InputFocused,
+		"InputIdle":    styles.InputIdle,
+	} {
+		for side, got := range map[string]lipgloss.TerminalColor{
+			"top":    style.GetBorderTopBackground(),
+			"right":  style.GetBorderRightBackground(),
+			"bottom": style.GetBorderBottomBackground(),
+			"left":   style.GetBorderLeftBackground(),
+		} {
+			if got != overlaySurface {
+				t.Fatalf("%s border-%s background = %v, want the modal surface color %v", name, side, got, overlaySurface)
+			}
+		}
+	}
+}
+
 func TestBuildStylesUsesConfiguredOverlaySurface(t *testing.T) {
 	styles := BuildStyles(CatppuccinMocha, StyleOptions{Density: Compact})
 	if got := styles.OverlayBody.GetBackground(); got != CatppuccinMocha.Overlay {

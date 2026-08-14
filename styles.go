@@ -226,9 +226,9 @@ func BuildStyles(base Theme, options StyleOptions) Styles {
 		OverlayBody: lipgloss.NewStyle().Background(modalBG).Foreground(modalFG),
 		OverlayHint: lipgloss.NewStyle().Background(modalBG).Foreground(modalMuted),
 		InputFocused: lipgloss.NewStyle().Background(modalBG).Foreground(modalFG).
-			Border(paneBorder(plain)).BorderForeground(modalAccent).Padding(0, 1),
+			Border(paneBorder(plain)).BorderForeground(modalAccent).BorderBackground(modalBG).Padding(0, 1),
 		InputIdle: lipgloss.NewStyle().Background(modalBG).Foreground(modalFG).
-			Border(paneBorder(plain)).BorderForeground(modalBorder).Padding(0, 1),
+			Border(paneBorder(plain)).BorderForeground(modalBorder).BorderBackground(modalBG).Padding(0, 1),
 		InputLabel: lipgloss.NewStyle().Foreground(modalMuted),
 	}
 }
