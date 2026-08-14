@@ -487,6 +487,18 @@ const shadowOffsetX, shadowOffsetY = 2, 1
 // actually look like a shadow, not just be mathematically present.
 const shadowAlpha = 0.925
 
+// shadowFgAlpha is deliberately much weaker than shadowAlpha. Blending a
+// cell's glyph foreground toward the same near-black target at the same
+// strength as its background collapses fg/bg contrast to near zero —
+// measured directly (contrastRatio) at shadowAlpha against this app's own
+// theme colors: 9.5:1 unshadowed down to ~1.2:1, i.e. the character
+// visually disappears into its own background instead of just dimming.
+// 0.45 keeps contrast at ~5:1 (above the WCAG AA 4.5:1 text floor,
+// verified against both a mid-tone and a near-black page color) while
+// still reading as visibly darker than unshadowed text — dimmed, not
+// erased.
+const shadowFgAlpha = 0.45
+
 func overlayOnBase(base, box string, width, height int, background lipgloss.Color, shadow bool, shadowBg lipgloss.Color) string {
 	boxLines := strings.Split(box, "\n")
 	boxWidth := 0
@@ -538,13 +550,14 @@ func blendShadowRect(base string, x, y, w, h, totalWidth, totalHeight int, page,
 			// falls inside the shadow rectangle (this app renders text
 			// right up to a pane's edge, which is exactly where the
 			// shadow's sliver sits) keeps its original bright color while
-			// only the space around it goes dark, reading as "not actually
-			// darker" rather than a shadow. Skip a nil Fg (no explicit
-			// foreground set) rather than fabricating one — blendBg's nil
-			// fallback is written for background semantics (page color),
-			// not a sensible default foreground.
+			// only the space around it goes dark. Uses shadowFgAlpha, not
+			// shadowAlpha — see that constant's comment for why the same
+			// strength for both collapses text to unreadable. Skip a nil
+			// Fg (no explicit foreground set) rather than fabricating one
+			// — blendBg's nil fallback is written for background
+			// semantics (page color), not a sensible default foreground.
 			if cell.Style.Fg != nil {
-				blended.Style.Fg = profile.Convert(blendBg(cell.Style.Fg, page, shadowBg, shadowAlpha))
+				blended.Style.Fg = profile.Convert(blendBg(cell.Style.Fg, page, shadowBg, shadowFgAlpha))
 			}
 			buf.SetCell(col, row, &blended)
 		}

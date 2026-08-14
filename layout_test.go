@@ -1,6 +1,7 @@
 package tideui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -348,6 +349,42 @@ func TestBlendShadowRectAlsoDarkensGlyphForeground(t *testing.T) {
 	if or != fr || og != fg2 || ob != fb {
 		t.Fatalf("glyph foreground outside shadow rect = (%.3f,%.3f,%.3f), want unchanged original fg (%.3f,%.3f,%.3f)", or, og, ob, fr, fg2, fb)
 	}
+}
+
+func TestShadowedTextStaysLegible(t *testing.T) {
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	defer lipgloss.SetColorProfile(termenv.Ascii)
+
+	page := lipgloss.Color("#333c46")
+	fg := lipgloss.Color("#e8edf2")
+	shadowBg := shadowColor(page)
+	textLine := lipgloss.NewStyle().Background(page).Foreground(fg).Render("XXXXXXXXXX")
+	base := strings.Join([]string{textLine, textLine, textLine, textLine}, "\n")
+
+	blended := blendShadowRect(base, 2, 1, 4, 2, 10, 4, page, shadowBg)
+	buf := cellbuf.NewBuffer(10, 4)
+	cellbuf.SetContent(buf, blended)
+
+	inside := buf.Cell(3, 1)
+	if inside == nil || inside.Style.Fg == nil || inside.Style.Bg == nil {
+		t.Fatal("expected resolved fg/bg inside the shadow rectangle")
+	}
+	fgHex := cellHex(inside.Style.Fg)
+	bgHex := cellHex(inside.Style.Bg)
+	// Blending fg and bg toward the same near-black target at the same
+	// strength collapses their contrast to near zero — shadowed text
+	// becomes indistinguishable from its own background instead of just
+	// dimming (this is exactly what shadowFgAlpha exists to prevent).
+	// WCAG AA's normal-text floor (4.5:1) is a reasonable, well-known bar
+	// for "still actually legible."
+	if ratio := contrastRatio(fgHex, bgHex); ratio < 4.5 {
+		t.Fatalf("shadowed text contrast = %.2f (fg=%s bg=%s), want >= 4.5 — text should dim, not disappear into its background", ratio, fgHex, bgHex)
+	}
+}
+
+func cellHex(c ansi.Color) lipgloss.Color {
+	r, g, b := cellRGB(c)
+	return lipgloss.Color(fmt.Sprintf("#%02x%02x%02x", uint8(r*255+0.5), uint8(g*255+0.5), uint8(b*255+0.5)))
 }
 
 func cellRGB(c ansi.Color) (r, g, b float64) {
