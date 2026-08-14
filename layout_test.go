@@ -92,6 +92,26 @@ func TestStatusBarLeftSurvivesWhenRightHintsAreTooLongToFit(t *testing.T) {
 	}
 }
 
+func TestStatusBarRightStaysThemedWhenLeftCarriesEmbeddedStyling(t *testing.T) {
+	// Regression: renderStatus concatenated a pre-styled Left (a host may
+	// compose Left from multiple differently-styled segments, e.g. a
+	// colored label next to a colored indicator) with plain Right text and
+	// gap spaces, then wrapped the whole line in one outer Render call.
+	// Once Left's own embedded styling reset, the gap and Right fell
+	// through to the raw terminal default instead of the status bar's own
+	// background — ANSI resets aren't scoped to "this wrapping style vs.
+	// the one before it."
+	renderer := NewRenderer(CatppuccinMocha, StyleOptions{Density: Compact})
+	styledLeft := lipgloss.NewStyle().Background(lipgloss.Color("#ff0000")).Render(" left ")
+	view := renderer.renderStatus(StatusBar{Left: styledLeft, Right: "hint"}, 40)
+
+	bg := renderer.Styles.StatusBar.GetBackground()
+	wantSGR := lipgloss.NewStyle().Background(bg).Render(" ")
+	if !strings.Contains(view, wantSGR) {
+		t.Fatalf("status bar gap/Right lost the bar's own background after a pre-styled Left:\n%q\nwant substring %q", view, wantSGR)
+	}
+}
+
 func TestRenderRowWithLongSuffixStaysOneLine(t *testing.T) {
 	renderer := NewRenderer(CatppuccinMocha, StyleOptions{Density: Compact})
 	row := renderer.RenderRow(Row{Prefix: "* ", Text: "x", Suffix: "way-too-long-suffix"}, 6)

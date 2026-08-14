@@ -342,8 +342,19 @@ func (r Renderer) renderStatus(status StatusBar, width int) string {
 	}
 	right = ansi.Truncate(right, max(0, rightWidth), "")
 	gap := max(0, innerWidth-lipgloss.Width(left)-lipgloss.Width(right))
-	line := " " + left + strings.Repeat(" ", gap) + right + " "
-	return r.Styles.StatusBar.Copy().UnsetPadding().Render(line)
+
+	// Left may carry its own embedded styling (a host-composed, multi-
+	// segment status message, e.g. a colored label next to a differently
+	// colored indicator) — once any of its embedded spans resets, plain
+	// text concatenated after it no longer inherits an outer style's
+	// background/foreground, since ANSI resets aren't stack-scoped to
+	// "this wrapping style" versus "the one before it." Rendering the gap,
+	// Right, and the leading/trailing single spaces through this style
+	// individually, rather than wrapping the whole concatenated line in one
+	// outer Render call, keeps them themed regardless of what Left did
+	// internally.
+	bar := r.Styles.StatusBar.Copy().UnsetPadding()
+	return bar.Render(" ") + left + bar.Render(strings.Repeat(" ", gap)) + bar.Render(right) + bar.Render(" ")
 }
 
 func (r Renderer) renderOverlay(overlay Overlay, windowWidth int) string {
