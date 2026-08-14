@@ -308,6 +308,48 @@ func TestBlendShadowRectDarkensOnlyTheGivenRectangle(t *testing.T) {
 	}
 }
 
+func TestBlendShadowRectAlsoDarkensGlyphForeground(t *testing.T) {
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	defer lipgloss.SetColorProfile(termenv.Ascii)
+
+	page := lipgloss.Color("#1e1e2e")
+	fg := lipgloss.Color("#e8edf2")
+	shadowBg := lipgloss.Color("#000000")
+	// A line with real, bright-foreground text spanning the shadow
+	// rectangle — this app renders text right up to a pane's edge, exactly
+	// where the shadow's sliver sits, so a shadow that only darkens
+	// backgrounds leaves any character there at its original brightness.
+	textLine := lipgloss.NewStyle().Background(page).Foreground(fg).Render("XXXXXXXXXX")
+	base := strings.Join([]string{textLine, textLine, textLine, textLine}, "\n")
+
+	blended := blendShadowRect(base, 2, 1, 4, 2, 10, 4, page, shadowBg)
+
+	buf := cellbuf.NewBuffer(10, 4)
+	cellbuf.SetContent(buf, blended)
+
+	fr, fg2, fb, _ := hexToRGB(fg)
+	sr, sg, sb, _ := hexToRGB(shadowBg)
+
+	inside := buf.Cell(3, 1)
+	if inside == nil || inside.Style.Fg == nil {
+		t.Fatal("expected a resolved foreground inside the shadow rectangle")
+	}
+	ir, ig, ib := cellRGB(inside.Style.Fg)
+	if !strictlyBetween(ir, fr, sr) || !strictlyBetween(ig, fg2, sg) || !strictlyBetween(ib, fb, sb) {
+		t.Fatalf("glyph foreground inside shadow rect = (%.3f,%.3f,%.3f), want strictly between original fg (%.3f,%.3f,%.3f) and shadow (%.3f,%.3f,%.3f) — the glyph should darken along with its background",
+			ir, ig, ib, fr, fg2, fb, sr, sg, sb)
+	}
+
+	outside := buf.Cell(0, 0)
+	if outside == nil || outside.Style.Fg == nil {
+		t.Fatal("expected a resolved foreground outside the shadow rectangle")
+	}
+	or, og, ob := cellRGB(outside.Style.Fg)
+	if or != fr || og != fg2 || ob != fb {
+		t.Fatalf("glyph foreground outside shadow rect = (%.3f,%.3f,%.3f), want unchanged original fg (%.3f,%.3f,%.3f)", or, og, ob, fr, fg2, fb)
+	}
+}
+
 func cellRGB(c ansi.Color) (r, g, b float64) {
 	rr, gg, bb, _ := c.RGBA()
 	return float64(rr>>8) / 255, float64(gg>>8) / 255, float64(bb>>8) / 255

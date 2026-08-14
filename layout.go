@@ -533,6 +533,19 @@ func blendShadowRect(base string, x, y, w, h, totalWidth, totalHeight int, page,
 			}
 			blended := *cell
 			blended.Style.Bg = profile.Convert(blendBg(cell.Style.Bg, page, shadowBg, shadowAlpha))
+			// A cell's foreground (its glyph's own color) needs darkening
+			// too, not just its background — otherwise any character that
+			// falls inside the shadow rectangle (this app renders text
+			// right up to a pane's edge, which is exactly where the
+			// shadow's sliver sits) keeps its original bright color while
+			// only the space around it goes dark, reading as "not actually
+			// darker" rather than a shadow. Skip a nil Fg (no explicit
+			// foreground set) rather than fabricating one — blendBg's nil
+			// fallback is written for background semantics (page color),
+			// not a sensible default foreground.
+			if cell.Style.Fg != nil {
+				blended.Style.Fg = profile.Convert(blendBg(cell.Style.Fg, page, shadowBg, shadowAlpha))
+			}
 			buf.SetCell(col, row, &blended)
 		}
 	}
