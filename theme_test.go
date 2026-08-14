@@ -103,6 +103,8 @@ func TestStylesMaintainReadableContrast(t *testing.T) {
 			{"active header", styles.PaneHeaderActive.GetForeground(), styles.PaneHeaderActive.GetBackground()},
 			{"inactive header", styles.PaneHeaderInactive.GetForeground(), styles.PaneHeaderInactive.GetBackground()},
 			{"status", styles.StatusBar.GetForeground(), styles.StatusBar.GetBackground()},
+			{"status error", styles.StatusError.GetForeground(), styles.StatusError.GetBackground()},
+			{"status success", styles.StatusSuccess.GetForeground(), styles.StatusSuccess.GetBackground()},
 			{"overlay title", styles.OverlayTitle.GetForeground(), styles.OverlayTitle.GetBackground()},
 			{"overlay body", styles.OverlayBody.GetForeground(), styles.OverlayBody.GetBackground()},
 		}

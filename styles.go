@@ -59,10 +59,11 @@ type Styles struct {
 	DetailFocusLine lipgloss.Style // subtle highlight for the cursor row in a detail list
 
 	// Status bar segments — render text then join with StatusBarSeparator.
-	StatusBar    lipgloss.Style // main status bar background and text
-	StatusError  lipgloss.Style // error message segment (bold, error colour)
-	StatusHint   lipgloss.Style // low-contrast keyboard hint
-	StatusNotice lipgloss.Style // accent-background announcement segment
+	StatusBar     lipgloss.Style // main status bar background and text
+	StatusError   lipgloss.Style // error message segment (bold, error colour)
+	StatusSuccess lipgloss.Style // success/confirmation segment (bold, Unread colour)
+	StatusHint    lipgloss.Style // low-contrast keyboard hint
+	StatusNotice  lipgloss.Style // accent-background announcement segment
 	// StatusBarJoiner renders the separator returned by StatusBarSeparator.
 	StatusBarJoiner lipgloss.Style
 
@@ -207,6 +208,8 @@ func BuildStyles(base Theme, options StyleOptions) Styles {
 			Foreground(readableText(t.StatusFg, t.StatusBar, 4.5)).Padding(0, 1),
 		StatusError: lipgloss.NewStyle().Background(t.StatusBar).
 			Foreground(readableText(t.Error, t.StatusBar, 4.5)).Bold(true).Padding(0, 1),
+		StatusSuccess: lipgloss.NewStyle().Background(t.StatusBar).
+			Foreground(readableText(t.Unread, t.StatusBar, 4.5)).Bold(true).Padding(0, 1),
 		StatusHint: lipgloss.NewStyle().Background(t.StatusBar).
 			Foreground(readableText(t.StatusFg, t.StatusBar, 3.0)),
 		StatusBarJoiner: lipgloss.NewStyle().Background(t.StatusBar).
