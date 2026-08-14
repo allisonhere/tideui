@@ -485,7 +485,7 @@ const shadowOffsetX, shadowOffsetY = 2, 1
 // brightness by only a few RGB points, which is real but reads as
 // invisible at normal viewing distance. This needs to be strong enough to
 // actually look like a shadow, not just be mathematically present.
-const shadowAlpha = 0.7
+const shadowAlpha = 0.85
 
 func overlayOnBase(base, box string, width, height int, background lipgloss.Color, shadow bool, shadowBg lipgloss.Color) string {
 	boxLines := strings.Split(box, "\n")
