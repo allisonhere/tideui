@@ -3,9 +3,11 @@ package tideui
 import (
 	"strings"
 
+	"github.com/charmbracelet/colorprofile"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/cellbuf"
+	"github.com/muesli/termenv"
 )
 
 // LayoutMode selects how the three panes are arranged in the rendered shell.
@@ -513,6 +515,16 @@ func blendShadowRect(base string, x, y, w, h, totalWidth, totalHeight int, page,
 	base = clampView(base, totalWidth, totalHeight, page)
 	buf := cellbuf.NewBuffer(totalWidth, totalHeight)
 	cellbuf.SetContent(buf, base)
+	// blendBg always returns an ansi.RGBColor (raw 24-bit truecolor), but
+	// cellbuf.Render below has no color-profile awareness of its own — it
+	// only exists in cellbuf's separate Screen type (screen.go), not the
+	// free Render function used here. Every OTHER style in this codebase
+	// downgrades through lipgloss's own profile-aware rendering; without
+	// converting to that same profile here, a terminal that isn't
+	// truecolor-capable would receive unsupported 24-bit SGR codes for the
+	// shadow cells specifically and most likely just ignore them outright
+	// — the shadow silently not rendering at all, regardless of alpha.
+	profile := activeColorProfile()
 	for row := max(0, y); row < min(totalHeight, y+h); row++ {
 		for col := max(0, x); col < min(totalWidth, x+w); col++ {
 			cell := buf.Cell(col, row)
@@ -520,11 +532,30 @@ func blendShadowRect(base string, x, y, w, h, totalWidth, totalHeight int, page,
 				continue
 			}
 			blended := *cell
-			blended.Style.Bg = blendBg(cell.Style.Bg, page, shadowBg, shadowAlpha)
+			blended.Style.Bg = profile.Convert(blendBg(cell.Style.Bg, page, shadowBg, shadowAlpha))
 			buf.SetCell(col, row, &blended)
 		}
 	}
 	return strings.ReplaceAll(cellbuf.Render(buf), "\r\n", "\n")
+}
+
+// activeColorProfile bridges lipgloss's global color profile (a
+// termenv.Profile — this is the profile every other Render call in this
+// package implicitly downgrades through) to the distinct colorprofile.Profile
+// type cellbuf's ConvertStyle/Profile.Convert expect. These are two
+// different Charm libraries' own profile enums; there's no shared type to
+// read directly off lipgloss.ColorProfile().
+func activeColorProfile() colorprofile.Profile {
+	switch lipgloss.ColorProfile() {
+	case termenv.TrueColor:
+		return colorprofile.TrueColor
+	case termenv.ANSI256:
+		return colorprofile.ANSI256
+	case termenv.ANSI:
+		return colorprofile.ANSI
+	default:
+		return colorprofile.ASCII
+	}
 }
 
 func placeBoxAt(base, box string, x, y, totalWidth, totalHeight int, bg lipgloss.Color) string {

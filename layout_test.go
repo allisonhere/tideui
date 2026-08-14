@@ -250,6 +250,27 @@ func TestRenderDrawsModalShadowOnlyWhenEnabled(t *testing.T) {
 	}
 }
 
+func TestModalShadowRespectsReducedColorProfile(t *testing.T) {
+	lipgloss.SetColorProfile(termenv.ANSI256)
+	defer lipgloss.SetColorProfile(termenv.Ascii)
+
+	layout := testLayout(StackedRight)
+	layout.Modal = &Overlay{Visible: true, Title: "Confirm", Content: "Proceed?", Footer: "enter apply", Width: 24}
+
+	withShadow := NewRenderer(CatppuccinMocha, StyleOptions{Density: Compact, ModalShadow: true})
+	viewWithShadow := withShadow.Render(layout)
+
+	withoutShadow := NewRenderer(CatppuccinMocha, StyleOptions{Density: Compact})
+	viewWithoutShadow := withoutShadow.Render(layout)
+
+	if viewWithShadow == viewWithoutShadow {
+		t.Fatal("expected ModalShadow to still change the rendered view under a reduced (ANSI256) color profile")
+	}
+	if strings.Contains(viewWithShadow, "48;2;") {
+		t.Fatal("shadow emitted a raw truecolor (48;2;) background sequence under an ANSI256 profile — a terminal that doesn't support truecolor would likely ignore it, making the shadow silently not render at all")
+	}
+}
+
 func TestBlendShadowRectDarkensOnlyTheGivenRectangle(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	defer lipgloss.SetColorProfile(termenv.Ascii)
