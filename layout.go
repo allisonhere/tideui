@@ -329,12 +329,18 @@ func (r Renderer) renderStatus(status StatusBar, width int) string {
 	innerWidth := max(0, width-2)
 	left := strings.ReplaceAll(status.Left, "\n", " ")
 	right := strings.ReplaceAll(status.Right, "\n", " ")
-	right = ansi.Truncate(right, innerWidth, "")
-	leftWidth := innerWidth - lipgloss.Width(right)
+	// Left gets first claim on the width, not Right: Left carries transient,
+	// often time-sensitive state (a save confirmation, an error, an active
+	// filter), while Right is normally a static keyboard-hint list the host
+	// can always show via a help overlay. Truncating the hints when space is
+	// tight is a much smaller loss than silently dropping the message the
+	// host just tried to tell the user.
+	left = ansi.Truncate(left, innerWidth, "")
+	rightWidth := innerWidth - lipgloss.Width(left)
 	if right != "" && left != "" {
-		leftWidth -= 2
+		rightWidth -= 2
 	}
-	left = ansi.Truncate(left, max(0, leftWidth), "")
+	right = ansi.Truncate(right, max(0, rightWidth), "")
 	gap := max(0, innerWidth-lipgloss.Width(left)-lipgloss.Width(right))
 	line := " " + left + strings.Repeat(" ", gap) + right + " "
 	return r.Styles.StatusBar.Copy().UnsetPadding().Render(line)

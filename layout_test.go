@@ -73,6 +73,25 @@ func TestPaneHeaderWithLongHintStaysOneLine(t *testing.T) {
 	assertDimensions(t, view, 20, 10)
 }
 
+func TestStatusBarLeftSurvivesWhenRightHintsAreTooLongToFit(t *testing.T) {
+	// Regression: renderStatus used to truncate Right (static keyboard hints)
+	// last, so a long hint list silently ate all the width and dropped Left
+	// (transient, often time-sensitive state like a save confirmation or
+	// error) entirely. Left must now win the width contest.
+	renderer := NewRenderer(CatppuccinMocha, StyleOptions{Density: Compact})
+	layout := testLayout(ThreeColumn)
+	layout.Width, layout.Height = 60, 20
+	layout.Status = &StatusBar{
+		Left:  "settings saved",
+		Right: strings.Repeat("a very long static hint list ", 5),
+	}
+	view := renderer.Render(layout)
+	plain := ansi.Strip(view)
+	if !strings.Contains(plain, "settings saved") {
+		t.Fatalf("status bar dropped Left text when Right didn't fit:\n%s", plain)
+	}
+}
+
 func TestRenderRowWithLongSuffixStaysOneLine(t *testing.T) {
 	renderer := NewRenderer(CatppuccinMocha, StyleOptions{Density: Compact})
 	row := renderer.RenderRow(Row{Prefix: "* ", Text: "x", Suffix: "way-too-long-suffix"}, 6)
