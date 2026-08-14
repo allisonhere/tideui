@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/charmbracelet/x/cellbuf"
 	"github.com/muesli/termenv"
 )
 
@@ -239,17 +240,63 @@ func TestRenderDrawsModalShadowOnlyWhenEnabled(t *testing.T) {
 	layout.Modal = &Overlay{Visible: true, Title: "Confirm", Content: "Proceed?", Footer: "enter apply", Width: 24}
 
 	withShadow := NewRenderer(CatppuccinMocha, StyleOptions{Density: Compact, ModalShadow: true})
-	shadowSGR := backgroundSGR(t, withShadow.Styles.ModalShadowColor)
 	viewWithShadow := withShadow.Render(layout)
-	if !strings.Contains(viewWithShadow, shadowSGR) {
-		t.Fatalf("expected rendered view to contain the shadow background SGR %q", shadowSGR)
-	}
 
 	withoutShadow := NewRenderer(CatppuccinMocha, StyleOptions{Density: Compact})
 	viewWithoutShadow := withoutShadow.Render(layout)
-	if strings.Contains(viewWithoutShadow, shadowSGR) {
-		t.Fatalf("expected no shadow background SGR %q when ModalShadow is unset", shadowSGR)
+
+	if viewWithShadow == viewWithoutShadow {
+		t.Fatal("expected ModalShadow to change the rendered view")
 	}
+}
+
+func TestBlendShadowRectDarkensOnlyTheGivenRectangle(t *testing.T) {
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	defer lipgloss.SetColorProfile(termenv.Ascii)
+
+	page := lipgloss.Color("#1e1e2e")
+	shadowBg := lipgloss.Color("#000000")
+	pageLine := lipgloss.NewStyle().Background(page).Render(strings.Repeat(" ", 10))
+	base := strings.Join([]string{pageLine, pageLine, pageLine, pageLine}, "\n")
+
+	blended := blendShadowRect(base, 2, 1, 4, 2, 10, 4, page, shadowBg)
+
+	buf := cellbuf.NewBuffer(10, 4)
+	cellbuf.SetContent(buf, blended)
+
+	pr, pg, pb, _ := hexToRGB(page)
+	sr, sg, sb, _ := hexToRGB(shadowBg)
+
+	inside := buf.Cell(3, 1)
+	if inside == nil || inside.Style.Bg == nil {
+		t.Fatal("expected a resolved background inside the shadow rectangle")
+	}
+	ir, ig, ib := cellRGB(inside.Style.Bg)
+	if !strictlyBetween(ir, pr, sr) || !strictlyBetween(ig, pg, sg) || !strictlyBetween(ib, pb, sb) {
+		t.Fatalf("cell inside shadow rect = (%.3f,%.3f,%.3f), want strictly between page (%.3f,%.3f,%.3f) and shadow (%.3f,%.3f,%.3f)",
+			ir, ig, ib, pr, pg, pb, sr, sg, sb)
+	}
+
+	outside := buf.Cell(0, 0)
+	if outside == nil || outside.Style.Bg == nil {
+		t.Fatal("expected a resolved background outside the shadow rectangle")
+	}
+	or, og, ob := cellRGB(outside.Style.Bg)
+	if or != pr || og != pg || ob != pb {
+		t.Fatalf("cell outside shadow rect = (%.3f,%.3f,%.3f), want unchanged page color (%.3f,%.3f,%.3f)", or, og, ob, pr, pg, pb)
+	}
+}
+
+func cellRGB(c ansi.Color) (r, g, b float64) {
+	rr, gg, bb, _ := c.RGBA()
+	return float64(rr>>8) / 255, float64(gg>>8) / 255, float64(bb>>8) / 255
+}
+
+func strictlyBetween(v, a, b float64) bool {
+	if a > b {
+		a, b = b, a
+	}
+	return v > a && v < b
 }
 
 func TestOverlayTitleStaysInsideRequestedModalWidth(t *testing.T) {

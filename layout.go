@@ -5,6 +5,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/charmbracelet/x/cellbuf"
 )
 
 // LayoutMode selects how the three panes are arranged in the rendered shell.
@@ -473,6 +474,11 @@ func clampView(view string, width, height int, background lipgloss.Color) string
 // bottom-and-right sliver, which reads as the shadow.
 const shadowOffsetX, shadowOffsetY = 2, 1
 
+// shadowAlpha is how strongly the shadow rectangle darkens whatever's
+// actually behind it (0 = invisible, 1 = the flat shadowBg color with
+// nothing of the original showing through).
+const shadowAlpha = 0.45
+
 func overlayOnBase(base, box string, width, height int, background lipgloss.Color, shadow bool, shadowBg lipgloss.Color) string {
 	boxLines := strings.Split(box, "\n")
 	boxWidth := 0
@@ -482,23 +488,37 @@ func overlayOnBase(base, box string, width, height int, background lipgloss.Colo
 	x := max(0, (width-boxWidth)/2)
 	y := max(0, (height-len(boxLines))/2)
 	if shadow {
-		base = placeBoxAt(base, shadowBox(boxWidth, len(boxLines), shadowBg), x+shadowOffsetX, y+shadowOffsetY, width, height, background)
+		base = blendShadowRect(base, x+shadowOffsetX, y+shadowOffsetY, boxWidth, len(boxLines), width, height, background, shadowBg)
 	}
 	return placeBoxAt(base, box, x, y, width, height, background)
 }
 
-// shadowBox renders a flat, opaque rectangle of the given size in bg — the
-// drop shadow itself. It's not a true alpha blend of whatever's already at
-// those cells (the string-splicing compositor here doesn't inspect the
-// underlying SGR to mix colors), just a solid rectangle offset behind the
-// modal, which is the standard technique terminal UIs use for this.
-func shadowBox(width, height int, bg lipgloss.Color) string {
-	line := lipgloss.NewStyle().Background(bg).Render(strings.Repeat(" ", width))
-	lines := make([]string, height)
-	for i := range lines {
-		lines[i] = line
+// blendShadowRect darkens the rectangle of base behind the modal's shadow
+// offset by blending each cell's own already-resolved background toward
+// shadowBg, instead of painting an opaque rectangle over it — a real drop
+// shadow rather than a flat cutout. It round-trips base through a cellbuf
+// grid: SetContent parses base's existing ANSI styling into per-cell
+// Style{Fg,Bg} (the piece this package has no other way to do — the rest
+// of this file treats content as opaque text), and Render serializes the
+// mutated grid back to an ANSI string. Render emits "\r\n" between lines
+// (cellbuf's own convention); normalized back to "\n" so the result still
+// fits placeBoxAt's plain strings.Split(base, "\n") downstream.
+func blendShadowRect(base string, x, y, w, h, totalWidth, totalHeight int, page, shadowBg lipgloss.Color) string {
+	base = clampView(base, totalWidth, totalHeight, page)
+	buf := cellbuf.NewBuffer(totalWidth, totalHeight)
+	cellbuf.SetContent(buf, base)
+	for row := max(0, y); row < min(totalHeight, y+h); row++ {
+		for col := max(0, x); col < min(totalWidth, x+w); col++ {
+			cell := buf.Cell(col, row)
+			if cell == nil {
+				continue
+			}
+			blended := *cell
+			blended.Style.Bg = blendBg(cell.Style.Bg, page, shadowBg, shadowAlpha)
+			buf.SetCell(col, row, &blended)
+		}
 	}
-	return strings.Join(lines, "\n")
+	return strings.ReplaceAll(cellbuf.Render(buf), "\r\n", "\n")
 }
 
 func placeBoxAt(base, box string, x, y, totalWidth, totalHeight int, bg lipgloss.Color) string {

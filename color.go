@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // paneFocusMinContrast is the contrast floor for the focused-pane border —
@@ -150,6 +151,38 @@ func shadowColor(bg lipgloss.Color) lipgloss.Color {
 		}
 	}
 	return cur
+}
+
+// blendBg lerps a cell's currently-resolved background color toward target
+// by alpha (0 = unchanged, 1 = fully target) — the per-cell color math a
+// true alpha-blended shadow needs, as opposed to shadowColor's flat
+// rectangle. existing is the ansi.Color already resolved for that cell by
+// cellbuf (nil means the cell never had an explicit background set, i.e.
+// it's showing the page's own default background — page fills in for it).
+func blendBg(existing ansi.Color, page, target lipgloss.Color, alpha float64) ansi.RGBColor {
+	var er, eg, eb float64
+	if existing == nil {
+		er, eg, eb, _ = hexToRGB(page)
+	} else {
+		r, g, b, _ := existing.RGBA()
+		er, eg, eb = float64(r>>8)/255, float64(g>>8)/255, float64(b>>8)/255
+	}
+	tr, tg, tb, _ := hexToRGB(target)
+	return ansi.RGBColor{
+		R: uint8(clamp01(er+(tr-er)*alpha)*255 + 0.5),
+		G: uint8(clamp01(eg+(tg-eg)*alpha)*255 + 0.5),
+		B: uint8(clamp01(eb+(tb-eb)*alpha)*255 + 0.5),
+	}
+}
+
+func clamp01(v float64) float64 {
+	if v < 0 {
+		return 0
+	}
+	if v > 1 {
+		return 1
+	}
+	return v
 }
 
 func mutedText(text, bg lipgloss.Color) lipgloss.Color {
