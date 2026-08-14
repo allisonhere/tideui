@@ -476,8 +476,14 @@ const shadowOffsetX, shadowOffsetY = 2, 1
 
 // shadowAlpha is how strongly the shadow rectangle darkens whatever's
 // actually behind it (0 = invisible, 1 = the flat shadowBg color with
-// nothing of the original showing through).
-const shadowAlpha = 0.45
+// nothing of the original showing through). shadowColor's target is
+// already pure black for most dark themes (it darkens until a fairly low
+// contrast floor against the page, which bottoms out at #000000 well
+// before reaching it) — a low alpha on top of an already-dark UI moves
+// brightness by only a few RGB points, which is real but reads as
+// invisible at normal viewing distance. This needs to be strong enough to
+// actually look like a shadow, not just be mathematically present.
+const shadowAlpha = 0.7
 
 func overlayOnBase(base, box string, width, height int, background lipgloss.Color, shadow bool, shadowBg lipgloss.Color) string {
 	boxLines := strings.Split(box, "\n")
