@@ -351,6 +351,62 @@ func TestBlendShadowRectAlsoDarkensGlyphForeground(t *testing.T) {
 	}
 }
 
+// TestBlendShadowRectLeavesRowsOutsideTheRectangleByteForByte is the
+// regression test for scoping blendShadowRect to just rows y..y+h instead
+// of the whole totalHeight viewport (a real, measured perf fix — parsing/
+// serializing the entire base render every frame to darken a small
+// rectangle was costing roughly a third of total render time in a
+// consuming app). The earlier shadow tests use identical repeated lines,
+// which can't tell a correctly-untouched row apart from one that happened
+// to get overwritten with the same content by accident; this uses
+// distinct content per row specifically to catch that.
+func TestBlendShadowRectLeavesRowsOutsideTheRectangleByteForByte(t *testing.T) {
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	defer lipgloss.SetColorProfile(termenv.Ascii)
+
+	page := lipgloss.Color("#1e1e2e")
+	shadowBg := lipgloss.Color("#000000")
+	row := func(text string) string {
+		return lipgloss.NewStyle().Background(page).Render(text)
+	}
+	original := []string{row("row-zero-x"), row("row-one--x"), row("row-two--x"), row("row-three-"), row("row-four--")}
+	base := strings.Join(original, "\n")
+
+	// Shadow rectangle covers rows 1..3 only (y=1, h=2) out of 5 total.
+	blended := blendShadowRect(base, 2, 1, 4, 2, 10, 5, page, shadowBg)
+	blendedLines := strings.Split(blended, "\n")
+
+	if len(blendedLines) != len(original) {
+		t.Fatalf("blended line count = %d, want %d (row count must be preserved)", len(blendedLines), len(original))
+	}
+	for _, i := range []int{0, 3, 4} {
+		if blendedLines[i] != original[i] {
+			t.Fatalf("row %d changed but is outside the shadow rectangle (rows 1-2 only):\ngot  %q\nwant %q", i, blendedLines[i], original[i])
+		}
+	}
+	for _, i := range []int{1, 2} {
+		if blendedLines[i] == original[i] {
+			t.Fatalf("row %d is inside the shadow rectangle but wasn't darkened at all", i)
+		}
+	}
+}
+
+// TestBlendShadowRectHandlesRectangleOutsideViewport checks the early-out
+// for a shadow rectangle that doesn't intersect the viewport at all (e.g.
+// a modal positioned such that its shadow offset falls off the bottom
+// edge) — must return the input unchanged, not panic on an empty slice.
+func TestBlendShadowRectHandlesRectangleOutsideViewport(t *testing.T) {
+	page := lipgloss.Color("#1e1e2e")
+	shadowBg := lipgloss.Color("#000000")
+	pageLine := lipgloss.NewStyle().Background(page).Render(strings.Repeat(" ", 10))
+	base := strings.Join([]string{pageLine, pageLine}, "\n")
+
+	got := blendShadowRect(base, 0, 5, 4, 2, 10, 2, page, shadowBg)
+	if got != base {
+		t.Fatalf("blendShadowRect() with an out-of-viewport rectangle = %q, want the unchanged input %q", got, base)
+	}
+}
+
 func TestShadowedTextStaysLegible(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	defer lipgloss.SetColorProfile(termenv.Ascii)
@@ -589,5 +645,29 @@ func TestTerminalBackgroundSequenceDoesNotWriteTerminal(t *testing.T) {
 	set, reset := TerminalBackgroundSequences(CatppuccinMocha)
 	if !strings.Contains(set, string(CatppuccinMocha.Bg)) || reset == "" {
 		t.Fatalf("unexpected OSC strings: set=%q reset=%q", set, reset)
+	}
+}
+
+// BenchmarkBlendShadowRectCompactModal tracks blendShadowRect's cost for a
+// realistic case: a compact modal (15 of 34 rows) in a normal-sized
+// terminal. Measured live before the row-scoping fix: ~1.17ms/6,783
+// allocs; after: ~0.51ms/4,332 allocs — regressing this back toward the
+// old numbers means the scoping got lost somewhere.
+func BenchmarkBlendShadowRectCompactModal(b *testing.B) {
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	defer lipgloss.SetColorProfile(termenv.Ascii)
+
+	page := lipgloss.Color("#1e1e2e")
+	shadowBg := lipgloss.Color("#000000")
+	const totalWidth, totalHeight = 120, 34
+	var rows []string
+	for i := 0; i < totalHeight; i++ {
+		rows = append(rows, lipgloss.NewStyle().Background(page).Render(strings.Repeat("x", totalWidth)))
+	}
+	base := strings.Join(rows, "\n")
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = blendShadowRect(base, 30, 8, 50, 15, totalWidth, totalHeight, page, shadowBg)
 	}
 }

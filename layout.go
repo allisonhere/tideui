@@ -516,17 +516,37 @@ func overlayOnBase(base, box string, width, height int, background lipgloss.Colo
 // blendShadowRect darkens the rectangle of base behind the modal's shadow
 // offset by blending each cell's own already-resolved background toward
 // shadowBg, instead of painting an opaque rectangle over it — a real drop
-// shadow rather than a flat cutout. It round-trips base through a cellbuf
-// grid: SetContent parses base's existing ANSI styling into per-cell
+// shadow rather than a flat cutout. It round-trips only the affected rows
+// through a cellbuf grid: SetContent parses ANSI styling into per-cell
 // Style{Fg,Bg} (the piece this package has no other way to do — the rest
 // of this file treats content as opaque text), and Render serializes the
 // mutated grid back to an ANSI string. Render emits "\r\n" between lines
 // (cellbuf's own convention); normalized back to "\n" so the result still
 // fits placeBoxAt's plain strings.Split(base, "\n") downstream.
+//
+// Scoped to rows y..y+h rather than the whole totalWidth×totalHeight
+// viewport — measured live in a consuming app: with the shadow rectangle
+// a small fraction of a typical terminal's height, parsing/serializing
+// the entire base render every frame (most of which the shadow never
+// touches) was costing roughly a third of total render time and most of
+// its allocations, on every single keystroke, for every modal shown.
+// Slicing to just the relevant rows here — which clampView already
+// guarantees are self-contained, uniformly totalWidth-padded lines, safe
+// to split and splice back by line index — cuts that cost in proportion
+// to h/totalHeight instead of paying for the whole screen regardless of
+// how small the shadow actually is.
 func blendShadowRect(base string, x, y, w, h, totalWidth, totalHeight int, page, shadowBg lipgloss.Color) string {
 	base = clampView(base, totalWidth, totalHeight, page)
-	buf := cellbuf.NewBuffer(totalWidth, totalHeight)
-	cellbuf.SetContent(buf, base)
+	rowStart, rowEnd := max(0, y), min(totalHeight, y+h)
+	if rowStart >= rowEnd {
+		return base // shadow rectangle doesn't intersect the viewport at all
+	}
+	lines := strings.Split(base, "\n")
+	sliceHeight := rowEnd - rowStart
+	slice := strings.Join(lines[rowStart:rowEnd], "\n")
+
+	buf := cellbuf.NewBuffer(totalWidth, sliceHeight)
+	cellbuf.SetContent(buf, slice)
 	// blendBg always returns an ansi.RGBColor (raw 24-bit truecolor), but
 	// cellbuf.Render below has no color-profile awareness of its own — it
 	// only exists in cellbuf's separate Screen type (screen.go), not the
@@ -537,7 +557,7 @@ func blendShadowRect(base string, x, y, w, h, totalWidth, totalHeight int, page,
 	// shadow cells specifically and most likely just ignore them outright
 	// — the shadow silently not rendering at all, regardless of alpha.
 	profile := activeColorProfile()
-	for row := max(0, y); row < min(totalHeight, y+h); row++ {
+	for row := 0; row < sliceHeight; row++ {
 		for col := max(0, x); col < min(totalWidth, x+w); col++ {
 			cell := buf.Cell(col, row)
 			if cell == nil {
@@ -562,7 +582,16 @@ func blendShadowRect(base string, x, y, w, h, totalWidth, totalHeight int, page,
 			buf.SetCell(col, row, &blended)
 		}
 	}
-	return strings.ReplaceAll(cellbuf.Render(buf), "\r\n", "\n")
+	blended := strings.Split(strings.ReplaceAll(cellbuf.Render(buf), "\r\n", "\n"), "\n")
+	if len(blended) != sliceHeight {
+		// Defensive: if cellbuf's line count for this slice height ever
+		// doesn't match what was asked for, fall back to the unshadowed
+		// rows rather than risk splicing a corrupted line count into the
+		// full view.
+		return base
+	}
+	copy(lines[rowStart:rowEnd], blended)
+	return strings.Join(lines, "\n")
 }
 
 // activeColorProfile bridges lipgloss's global color profile (a
