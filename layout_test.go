@@ -251,6 +251,40 @@ func TestRenderDrawsModalShadowOnlyWhenEnabled(t *testing.T) {
 	}
 }
 
+func TestOverlayModalMatchesRendersOwnModalShadow(t *testing.T) {
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	defer lipgloss.SetColorProfile(termenv.Ascii)
+
+	// A caller with a bespoke layout builds its own base view and its own
+	// already-rendered modal chrome (Raw: true is exactly this case — see
+	// Overlay.Raw), rather than going through Render's Panes/Mode system.
+	layout := testLayout(StackedRight)
+	layout.Modal = nil
+	renderer := NewRenderer(CatppuccinMocha, StyleOptions{Density: Compact, ModalShadow: true})
+	base := renderer.Render(layout)
+	modalChrome := renderer.renderOverlay(Overlay{Content: "Proceed?", Raw: true}, layout.Width)
+
+	got := renderer.OverlayModal(base, modalChrome, layout.Width, layout.Height)
+
+	// What Render itself produces when the same modal is wired in as
+	// layout.Modal must be identical: OverlayModal is meant to be the same
+	// step, not a second implementation of it.
+	layout.Modal = &Overlay{Visible: true, Content: "Proceed?", Raw: true}
+	want := renderer.Render(layout)
+
+	if got != want {
+		t.Fatal("OverlayModal did not match Render's own modal-shadow compositing")
+	}
+
+	withoutShadow := NewRenderer(CatppuccinMocha, StyleOptions{Density: Compact})
+	plainBase := withoutShadow.Render(testLayout(StackedRight))
+	plainChrome := withoutShadow.renderOverlay(Overlay{Content: "Proceed?", Raw: true}, layout.Width)
+	unshadowed := withoutShadow.OverlayModal(plainBase, plainChrome, layout.Width, layout.Height)
+	if got == unshadowed {
+		t.Fatal("expected OverlayModal's shadow to actually change the rendered view")
+	}
+}
+
 func TestModalShadowRespectsReducedColorProfile(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.ANSI256)
 	defer lipgloss.SetColorProfile(termenv.Ascii)

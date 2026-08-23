@@ -117,6 +117,17 @@ func (r Renderer) Render(layout Layout) string {
 	return clampView(view, layout.Width, layout.Height, r.Styles.Theme.Bg)
 }
 
+// OverlayModal composites overlayContent as a centered modal on top of an
+// already-assembled base view, blending Styles.ModalShadow's drop shadow
+// into whatever base content the shadow actually falls across — the same
+// step Render performs internally for Layout.Modal. It exists for callers
+// whose overall page isn't assembled through Render's own Panes/Mode
+// system, so they can still get the same contrast-aware shadow rather than
+// reimplementing it as a flat overlay.
+func (r Renderer) OverlayModal(base, overlayContent string, width, height int) string {
+	return overlayOnBase(base, overlayContent, width, height, r.Styles.Theme.Bg, r.Styles.ModalShadow, r.Styles.ModalShadowColor)
+}
+
 // Row is a generic themed list row with optional left and right content.
 type Row struct {
 	Prefix   string
