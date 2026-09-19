@@ -14,8 +14,9 @@ hand `tideui` strings and dimensions, and it returns a framed, themed view.
 The three-pane layout, theme-preview workflow, and themed modal language began
 in [Tide](https://github.com/allisonhere/tide), a terminal RSS reader, and were
 refined in [TideMail](https://github.com/allisonhere/tidemail), a keyboard-first
-email client. `tideui` packages those reusable primitives for any Bubble Tea
-application.
+email client, and grew its workspace and plugin layer in
+[TideDeck](https://github.com/allisonhere/tidedeck), a terminal dashboard.
+`tideui` packages those reusable primitives for any Bubble Tea application.
 
 ## Install
 
@@ -36,6 +37,11 @@ go get github.com/allisonhere/tideui
 - **Density + accessibility** — compact/comfortable spacing and a VT52 ASCII mode.
 - **Bounded output** — never exceeds the requested terminal dimensions, down to tiny windows.
 - **Terminal background control** — exposes the escape sequences so the app, not the library, writes to the terminal.
+- **A workspace layer** — panes, focus traversal, zoom, peek, tab stacks, presets, undo/redo, mouse routing and versioned persistence, for an application that wants the whole shell rather than one framed view.
+- **Chrome primitives** — headers, footers, tabs, badges, key capsules, metrics, gauges, sparklines and list rows, in three densities.
+- **Semantic colour** — tones (`good`, `warning`, `danger`, `muted`, `accent`) resolved from the host's theme, plus contrast correction and hue helpers for themes an application builds itself.
+- **Pictures in a pane** — half-block rendering everywhere, with a kitty/Ghostty placeholder transport behind a capability gate.
+- **Layout themes and per-pane styling** — density, gauges, sparklines and full themes per pane, with the workspace-wide chrome intact.
 
 ## Quick start
 

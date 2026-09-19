@@ -43,14 +43,30 @@ func TestRenderSoftPanelPlainUsesASCIIBorder(t *testing.T) {
 	}
 }
 
-func TestRenderSoftHintsLowercasesAndFitsWidth(t *testing.T) {
-	renderer := NewRenderer(CatppuccinMocha, StyleOptions{Density: Compact})
-	line := renderer.RenderSoftHints(30, SoftHint{Key: "ENTER", Label: "Confirm"}, SoftHint{Key: "ESC", Label: "Cancel"})
-	if got := lipgloss.Width(line); got != 30 {
-		t.Fatalf("hint width = %d, want 30", got)
+func TestRenderSoftHintsDrawsKeysAsGlyphs(t *testing.T) {
+	cases := []struct {
+		style IconStyle
+		enter string
+		esc   string
+	}{
+		{IconPlain, "↵", "␛"},
+		{IconEmoji, "\u21a9\ufe0f", "␛"},
+		{IconNerd, "\uf0311", "\uf12b7"},
 	}
-	if plain := ansi.Strip(line); !strings.Contains(plain, "enter confirm") || strings.Contains(plain, "ENTER") {
-		t.Fatalf("hint text = %q", plain)
+	for _, tc := range cases {
+		renderer := NewRenderer(CatppuccinMocha, StyleOptions{Density: Compact, IconStyle: tc.style})
+		line := renderer.RenderSoftHints(30, SoftHint{Key: "ENTER", Label: "Confirm"}, SoftHint{Key: "ESC", Label: "Cancel"})
+		if got := lipgloss.Width(line); got != 30 {
+			t.Fatalf("%s: hint width = %d, want 30", tc.style, got)
+		}
+		plain := ansi.Strip(line)
+		// Keys render as keyboard glyphs; labels stay lowercase.
+		if !strings.Contains(plain, tc.enter+" confirm") || !strings.Contains(plain, tc.esc+" cancel") {
+			t.Fatalf("%s: hint text = %q", tc.style, plain)
+		}
+		if strings.Contains(plain, "Confirm") {
+			t.Fatalf("%s: hint label not lowercased: %q", tc.style, plain)
+		}
 	}
 }
 

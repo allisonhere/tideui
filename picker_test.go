@@ -88,3 +88,19 @@ func TestThemePickerModalUsesThemeCursorAndKeepsSelectionVisible(t *testing.T) {
 		}
 	}
 }
+
+func TestThemePickerSetTitle(t *testing.T) {
+	picker := NewThemePicker(ThemePickerOptions{Themes: []Theme{Nord, Dracula}})
+	renderer := NewRenderer(CatppuccinMocha, StyleOptions{})
+	if got := picker.Modal(renderer, 40, 12).Title; got != "THEME" {
+		t.Fatalf("default title = %q, want THEME", got)
+	}
+	picker.SetTitle("Theme · Weather")
+	if got := picker.Modal(renderer, 40, 12).Title; got != "Theme · Weather" {
+		t.Fatalf("title = %q, want Theme · Weather", got)
+	}
+	picker.SetTitle("")
+	if got := picker.Modal(renderer, 40, 12).Title; got != "THEME" {
+		t.Fatalf("cleared title = %q, want THEME", got)
+	}
+}

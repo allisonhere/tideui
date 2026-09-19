@@ -29,6 +29,7 @@ type SoftRow struct {
 	Suffix   string
 	Selected bool
 	Muted    bool
+	Accent   bool // foreground uses the modal accent, e.g. for action buttons
 }
 
 type softChrome struct {
@@ -43,7 +44,14 @@ type softChrome struct {
 }
 
 func newSoftChrome(styles Styles) softChrome {
-	baseBg := modalSurface(styles.Theme)
+	return newSoftChromeOn(styles, modalSurface(styles.Theme))
+}
+
+// newSoftChromeOn resolves the soft palette against a surface the caller
+// names, so a row can sit on a pane as convincingly as it sits in a modal.
+// Everything else - selection, muting, contrast correction - is derived from
+// that surface, which is what keeps a row readable wherever it is drawn.
+func newSoftChromeOn(styles Styles, baseBg lipgloss.Color) softChrome {
 	accent := styles.Theme.BorderFocus
 	if accent == "" {
 		accent = styles.Theme.OverlayBorder
@@ -139,7 +147,7 @@ func (r Renderer) RenderSoftHints(width int, hints ...SoftHint) string {
 		if hint.Key == "" && hint.Label == "" {
 			continue
 		}
-		parts = append(parts, keyStyle.Render(strings.ToLower(hint.Key))+labelStyle.Render(" "+strings.ToLower(hint.Label)))
+		parts = append(parts, keyStyle.Render(r.keyGlyph(hint.Key))+labelStyle.Render(" "+strings.ToLower(hint.Label)))
 	}
 	line := lipgloss.NewStyle().Background(chrome.baseBg).Render("  ") + strings.Join(parts, gap)
 	return padStyled(line, max(1, width), chrome.baseBg)
@@ -172,9 +180,21 @@ func (r Renderer) RenderSoftBody(width int, content string) string {
 	return strings.Join(lines, "\n")
 }
 
-// RenderSoftRow renders a soft modal row with a two-cell selected rail.
+// RenderSoftRow renders a soft modal row with a two-cell selected rail, on the
+// modal surface.
 func (r Renderer) RenderSoftRow(row SoftRow, width int) string {
-	chrome := newSoftChrome(r.Styles)
+	return r.RenderSoftRowOn(row, width, modalSurface(r.Styles.Theme))
+}
+
+// RenderSoftRowOn renders a soft row on a named background.
+//
+// A row drawn with RenderSoftRow sits on the modal surface, which is a lifted
+// shade of the theme background. That is right inside a modal and wrong inside
+// a pane: the rows come out a different colour from the blank space around
+// them, and the pane looks banded. A screen that draws soft rows directly into
+// a pane passes the pane's own background here.
+func (r Renderer) RenderSoftRowOn(row SoftRow, width int, surface lipgloss.Color) string {
+	chrome := newSoftChromeOn(r.Styles, surface)
 	width = max(1, width)
 	bg := chrome.baseBg
 	fg := chrome.text
@@ -182,10 +202,12 @@ func (r Renderer) RenderSoftRow(row SoftRow, width int) string {
 	case row.Selected:
 		bg = chrome.selectedBg
 		fg = chrome.selectedText
+	case row.Accent:
+		fg = chrome.accent
 	case row.Muted:
 		fg = chrome.muted
 	}
-	rail := r.SoftRail(row.Selected, bg)
+	rail := r.softRailOn(row.Selected, bg, chrome)
 	contentW := max(1, width-lipgloss.Width(rail))
 	content := alignRow(row.Prefix, row.Text, row.Suffix, contentW)
 	content = StyleOver(lipgloss.NewStyle().Background(bg).Foreground(fg).Bold(row.Selected), content)
@@ -194,7 +216,10 @@ func (r Renderer) RenderSoftRow(row SoftRow, width int) string {
 
 // SoftRail renders the two-cell focus marker used in soft modal rows.
 func (r Renderer) SoftRail(active bool, bg lipgloss.Color) string {
-	chrome := newSoftChrome(r.Styles)
+	return r.softRailOn(active, bg, newSoftChrome(r.Styles))
+}
+
+func (r Renderer) softRailOn(active bool, bg lipgloss.Color, chrome softChrome) string {
 	glyph := "▌ "
 	if chrome.plain {
 		glyph = "> "

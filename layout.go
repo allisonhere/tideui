@@ -76,11 +76,53 @@ type Layout struct {
 // Renderer renders Layout and Row values using one resolved set of styles.
 type Renderer struct {
 	Styles Styles
+	// CellAspect is the cell's height divided by its width, already clamped to
+	// something a terminal could plausibly have (see StyleOptions.CellAspect).
+	// Only image sizing reads it.
+	CellAspect float64
+	// CellWidth is one cell's width in pixels, already checked (see
+	// StyleOptions.CellWidth). Only things that reason in pixels read it.
+	CellWidth float64
 }
 
 // NewRenderer creates a renderer for a theme and style options.
 func NewRenderer(theme Theme, options StyleOptions) Renderer {
-	return Renderer{Styles: BuildStyles(theme, options)}
+	return Renderer{
+		Styles:     BuildStyles(theme, options),
+		CellAspect: normalisedCellAspect(options.CellAspect),
+		CellWidth:  normalisedCellWidth(options.CellWidth),
+	}
+}
+
+// defaultCellWidth is what a pane is measured with when nobody measured the
+// terminal: about the width of a monospace cell at a sane font size.
+const defaultCellWidth = 8.0
+
+// normalisedCellWidth keeps a measurement a terminal could plausibly have - one
+// pixel per cell to forty - and treats anything else as no measurement at all: a
+// pane sized from a broken ioctl would otherwise ask for a mosaic it does not
+// need, which costs somebody else's bandwidth.
+func normalisedCellWidth(width float64) float64 {
+	if width < 1 || width > 40 {
+		return defaultCellWidth
+	}
+	return width
+}
+
+// defaultCellAspect is what a picture is sized by when nobody measured the
+// terminal: cells are near enough twice as tall as they are wide.
+const defaultCellAspect = 2.0
+
+// normalisedCellAspect keeps a measurement a terminal could plausibly have - fonts
+// put a cell between half as tall as it is wide and eight times - and treats
+// anything else as no measurement at all: a broken ioctl must not distort a
+// picture four-fold, and a caller passing 0.1 would ask for one twenty times wider
+// than the pane.
+func normalisedCellAspect(aspect float64) float64 {
+	if aspect < 0.5 || aspect > 8 {
+		return defaultCellAspect
+	}
+	return aspect
 }
 
 // Render produces a terminal-sized themed view for layout.
@@ -246,11 +288,31 @@ func (r Renderer) renderTabbed(panes [3]Pane, width, height int) string {
 			break
 		}
 	}
-	tabWidth := width / 3
-	tab0 := r.renderHeader(panes[0], tabWidth)
-	tab1 := r.renderHeader(panes[1], tabWidth)
-	tab2 := r.renderHeader(panes[2], max(1, width-2*tabWidth))
-	tabBar := lipgloss.JoinHorizontal(lipgloss.Top, tab0, tab1, tab2)
+	// Only panes that exist get a tab. Drawing all three unconditionally gave
+	// a layout with two panes a third, empty tab - a header for a pane that
+	// was never filled in.
+	present := 0
+	for _, pane := range panes {
+		if pane.Title != "" || pane.Content != "" {
+			present++
+		}
+	}
+	if present == 0 {
+		present = 1
+	}
+	tabWidth := width / present
+	headers := make([]string, 0, present)
+	for i, pane := range panes {
+		if i >= present {
+			break
+		}
+		if i == present-1 {
+			headers = append(headers, r.renderHeader(pane, max(1, width-tabWidth*(present-1))))
+			continue
+		}
+		headers = append(headers, r.renderHeader(pane, tabWidth))
+	}
+	tabBar := lipgloss.JoinHorizontal(lipgloss.Top, headers...)
 
 	contentHeight := max(0, height-1)
 	if contentHeight == 0 {

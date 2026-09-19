@@ -20,6 +20,23 @@ const paneFocusMinContrast = 7.0
 // visually distinct rather than a faint tint.
 const selectedBgMinContrast = 3.0
 
+// workspaceFocusMinContrast is the floor for the focused panel frame in the
+// workspace. It is intentionally lower than the base pane's 7:1 so focus reads
+// as an accent edge rather than a neon outline on a busy dashboard; content
+// stays fully readable because only the frame changes.
+const workspaceFocusMinContrast = 4.5
+
+// workspaceFocusColor keeps the accent's hue while reaching a readable but not
+// neon contrast against the workspace background. It falls back to a
+// guaranteed-contrast colour only if the accent cannot get close.
+func workspaceFocusColor(accent, bg lipgloss.Color) lipgloss.Color {
+	c := AccentReadableOn(accent, bg, 5.0)
+	if contrastRatio(c, bg) < workspaceFocusMinContrast {
+		c = readableText(accent, bg, workspaceFocusMinContrast)
+	}
+	return c
+}
+
 // shadowBgMinContrast is the contrast floor a modal drop shadow's
 // background must clear against the page background it sits on, so the
 // shadow reads as a shadow instead of an invisible near-match.
