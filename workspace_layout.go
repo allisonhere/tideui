@@ -224,8 +224,8 @@ func NormalizeLayout(root LayoutNode) LayoutNode {
 			return nil
 		}
 		if len(children) == 1 {
-			if leaf, ok := children[0].(*LeafNode); ok {
-				leaf.Weight = n.Weight
+			if n.Weight > 0 {
+				setChildWeight(children[0], n.Weight)
 			}
 			return children[0]
 		}

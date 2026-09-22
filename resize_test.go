@@ -41,6 +41,71 @@ func TestPaneRatioDefaults(t *testing.T) {
 	}
 }
 
+func TestPaneRatioNormalizesOptions(t *testing.T) {
+	tests := []struct {
+		name          string
+		options       PaneRatioOptions
+		wantValue     float64
+		wantAfterGrow float64
+	}{
+		{
+			name:          "valid",
+			options:       PaneRatioOptions{Initial: 0.3, Min: 0.2, Max: 0.8, Step: 0.1},
+			wantValue:     0.3,
+			wantAfterGrow: 0.4,
+		},
+		{
+			name:          "inverted bounds swap",
+			options:       PaneRatioOptions{Initial: 0.5, Min: 0.8, Max: 0.2, Step: 0.1},
+			wantValue:     0.5,
+			wantAfterGrow: 0.6,
+		},
+		{
+			name:          "invalid min",
+			options:       PaneRatioOptions{Initial: 0.5, Min: 1, Max: 0.8, Step: 0.1},
+			wantValue:     0.5,
+			wantAfterGrow: 0.6,
+		},
+		{
+			name:          "invalid max",
+			options:       PaneRatioOptions{Initial: 0.5, Min: 0.2, Max: 0, Step: 0.1},
+			wantValue:     0.5,
+			wantAfterGrow: 0.6,
+		},
+		{
+			name:          "initial below bounds",
+			options:       PaneRatioOptions{Initial: 0.1, Min: 0.2, Max: 0.8, Step: 0.1},
+			wantValue:     0.2,
+			wantAfterGrow: 0.3,
+		},
+		{
+			name:          "initial above bounds",
+			options:       PaneRatioOptions{Initial: 0.9, Min: 0.2, Max: 0.8, Step: 0.1},
+			wantValue:     0.8,
+			wantAfterGrow: 0.8,
+		},
+		{
+			name:          "invalid step",
+			options:       PaneRatioOptions{Initial: 0.3, Min: 0.2, Max: 0.8, Step: -1},
+			wantValue:     0.3,
+			wantAfterGrow: 0.32,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ratio := NewPaneRatio(tt.options)
+			if got := ratio.Value(); !floatsEqual(got, tt.wantValue) {
+				t.Fatalf("initial value = %v, want %v", got, tt.wantValue)
+			}
+			ratio.Grow()
+			if got := ratio.Value(); !floatsEqual(got, tt.wantAfterGrow) {
+				t.Fatalf("grown value = %v, want %v", got, tt.wantAfterGrow)
+			}
+		})
+	}
+}
+
 func floatsEqual(a, b float64) bool {
 	const epsilon = 1e-9
 	d := a - b

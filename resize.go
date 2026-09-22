@@ -1,5 +1,7 @@
 package tideui
 
+import "math"
+
 // PaneRatioOptions configures a PaneRatio.
 type PaneRatioOptions struct {
 	// Initial is the starting ratio. Zero uses the midpoint of Min and Max.
@@ -28,22 +30,29 @@ type PaneRatio struct {
 // Step on each Grow/Shrink call.
 func NewPaneRatio(options PaneRatioOptions) PaneRatio {
 	loBound := options.Min
-	if loBound <= 0 {
+	if !finiteRatio(loBound) || loBound <= 0 || loBound >= 1 {
 		loBound = 0.1
 	}
 	hiBound := options.Max
-	if hiBound <= 0 || hiBound > 1 {
+	if !finiteRatio(hiBound) || hiBound <= 0 || hiBound > 1 {
 		hiBound = 0.9
 	}
+	if loBound > hiBound {
+		loBound, hiBound = hiBound, loBound
+	}
 	step := options.Step
-	if step <= 0 {
+	if !finiteRatio(step) || step <= 0 {
 		step = 0.02
 	}
 	initial := options.Initial
-	if initial <= 0 {
+	if initial == 0 || math.IsNaN(initial) {
 		initial = (loBound + hiBound) / 2
 	}
 	return PaneRatio{value: min(max(initial, loBound), hiBound), min: loBound, max: hiBound, step: step}
+}
+
+func finiteRatio(value float64) bool {
+	return !math.IsNaN(value) && !math.IsInf(value, 0)
 }
 
 // Value returns the current ratio, ready to assign to a Layout ratio field.

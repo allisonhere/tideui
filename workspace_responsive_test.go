@@ -98,6 +98,30 @@ func TestResponsiveDisabledLeavesLayoutAlone(t *testing.T) {
 	}
 }
 
+func TestResponsivePolicyApplyDisabledReturnsUnchanged(t *testing.T) {
+	root := HStack(Leaf("main"), Leaf("optional"))
+	state := map[string]int{"optional": 80}
+	got, hidden, collapsed := (ResponsivePolicy{}).Apply(
+		root,
+		40,
+		map[string]*Panel{
+			"main":     {id: "main", role: RolePrimary},
+			"optional": {id: "optional", role: RoleOptional},
+		},
+		[]string{"main", "optional"},
+		state,
+	)
+	if got != root {
+		t.Fatal("disabled policy returned a different tree")
+	}
+	if len(hidden) != 0 || len(collapsed) != 0 {
+		t.Fatalf("disabled policy maps = hidden %v collapsed %v, want empty", hidden, collapsed)
+	}
+	if state["optional"] != 80 {
+		t.Fatalf("disabled policy changed state: %v", state)
+	}
+}
+
 func containsTabStack(node LayoutNode) bool {
 	found := false
 	walkLayout(node, func(n LayoutNode) {

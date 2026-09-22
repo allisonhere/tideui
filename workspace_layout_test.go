@@ -206,6 +206,69 @@ func TestNormalizeFlattensAndDropsEmpty(t *testing.T) {
 	}
 }
 
+func TestNormalizePreservesWeightWhenCollapsingNodes(t *testing.T) {
+	tests := []struct {
+		name string
+		root LayoutNode
+		want float64
+		get  func(LayoutNode) float64
+	}{
+		{
+			name: "leaf",
+			root: Weighted(HStack(Leaf("a")), 2),
+			want: 2,
+			get:  func(node LayoutNode) float64 { return node.(*LeafNode).Weight },
+		},
+		{
+			name: "tab stack",
+			root: Weighted(HStack(Tabs("a", "b")), 3),
+			want: 3,
+			get:  func(node LayoutNode) float64 { return node.(*TabStackNode).Weight },
+		},
+		{
+			name: "nested split",
+			root: Weighted(VStack(Weighted(HStack(Leaf("a"), Leaf("b")), 4)), 2),
+			want: 2,
+			get:  func(node LayoutNode) float64 { return node.(*SplitNode).Weight },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NormalizeLayout(tt.root)
+			if weight := tt.get(got); weight != tt.want {
+				t.Fatalf("weight = %v, want %v", weight, tt.want)
+			}
+		})
+	}
+}
+
+func TestNormalizeDoesNotEraseChildWeight(t *testing.T) {
+	child := Weighted(Tabs("a", "b"), 4)
+	got := NormalizeLayout(HStack(child))
+	if weight := got.(*TabStackNode).Weight; weight != 4 {
+		t.Fatalf("child weight = %v, want 4", weight)
+	}
+}
+
+func TestRemovePanelPreservesRemainingNestedPaneProportion(t *testing.T) {
+	root := HStack(Weighted(VStack(Leaf("top"), Leaf("bottom")), 2), Leaf("side"))
+	got, removed := RemovePanel(root, "bottom")
+	if !removed {
+		t.Fatal("RemovePanel did not remove bottom")
+	}
+
+	split := got.(*SplitNode)
+	remaining := split.Children[0].(*LeafNode)
+	if remaining.Weight != 2 {
+		t.Fatalf("remaining pane weight = %v, want 2", remaining.Weight)
+	}
+	solved := flatSolver(0).Solve(got, 90, 20)
+	if solved.Rects["top"].Width != 60 || solved.Rects["side"].Width != 30 {
+		t.Fatalf("remaining proportions = top %d, side %d; want 60/30", solved.Rects["top"].Width, solved.Rects["side"].Width)
+	}
+}
+
 func TestSanitizeLayoutDropsDuplicatePanels(t *testing.T) {
 	root := HStack(Leaf("a"), VStack(Leaf("b"), Leaf("a"), Tabs("a", "b", "c")))
 	got := SanitizeLayout(root)

@@ -96,7 +96,43 @@ func sameSnapshot(a, b workspaceSnapshot) bool {
 			return false
 		}
 	}
-	return LayoutString(a.root) == LayoutString(b.root)
+	return sameLayout(a.root, b.root)
+}
+
+func sameLayout(a, b LayoutNode) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+
+	switch left := a.(type) {
+	case *LeafNode:
+		right, ok := b.(*LeafNode)
+		return ok && left.ID == right.ID && left.Weight == right.Weight
+	case *TabStackNode:
+		right, ok := b.(*TabStackNode)
+		if !ok || left.Weight != right.Weight || left.Active != right.Active || len(left.Panels) != len(right.Panels) {
+			return false
+		}
+		for i := range left.Panels {
+			if left.Panels[i] != right.Panels[i] {
+				return false
+			}
+		}
+		return true
+	case *SplitNode:
+		right, ok := b.(*SplitNode)
+		if !ok || left.Orientation != right.Orientation || left.Weight != right.Weight || len(left.Children) != len(right.Children) {
+			return false
+		}
+		for i := range left.Children {
+			if !sameLayout(left.Children[i], right.Children[i]) {
+				return false
+			}
+		}
+		return true
+	default:
+		return false
+	}
 }
 
 func cloneStringSet(in map[string]bool) map[string]bool {

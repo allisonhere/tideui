@@ -27,6 +27,9 @@ type responsiveAction struct {
 func (p ResponsivePolicy) Apply(root LayoutNode, width int, panels map[string]*Panel, order []string, state map[string]int) (LayoutNode, map[string]bool, map[string]bool) {
 	hidden := map[string]bool{}
 	collapsed := map[string]bool{}
+	if !p.Enabled {
+		return root, hidden, collapsed
+	}
 	if root == nil || width <= 0 || len(panels) == 0 {
 		return root, hidden, collapsed
 	}
