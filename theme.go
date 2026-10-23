@@ -24,6 +24,22 @@ type Theme struct {
 	Error         lipgloss.Color // error text in the status bar
 	Overlay       lipgloss.Color // modal background; defaults to a lightness-adjusted Bg when empty
 	OverlayBorder lipgloss.Color // modal border; falls back to Border when empty
+
+	// Family and Variant group related palettes in pickers, e.g. "Catppuccin"
+	// and "Mocha". Both may be empty for a theme that stands alone.
+	Family  string
+	Variant string
+
+	// Optional semantic roles. An empty role falls back to a color the theme
+	// already has (see the *Color accessors), so a Theme literal that sets only
+	// the fields above keeps working.
+	Success lipgloss.Color // confirmations and "ok" states
+	Warning lipgloss.Color // cautions
+	Link    lipgloss.Color // hyperlinks
+	Quote   lipgloss.Color // quoted text
+	Match   lipgloss.Color // search matches
+	Tag     lipgloss.Color // tags and pills
+	Cursor  lipgloss.Color // text cursor and focus-line marker
 }
 
 // ThemeOverrides replaces presentation colors without requiring a new theme.
@@ -51,6 +67,62 @@ func (o ThemeOverrides) Apply(base Theme) Theme {
 	return out
 }
 
+// Label is the human-readable name pickers show: the family and variant, or the
+// Name when the theme has no family.
+func (t Theme) Label() string {
+	switch {
+	case t.Family == "":
+		return t.Name
+	case t.Variant == "" || t.Variant == t.Family:
+		return t.Family
+	}
+	return t.Family + " " + t.Variant
+}
+
+// IsLight reports whether the theme has a light background.
+func (t Theme) IsLight() bool { return !isDark(t.Bg) }
+
+func firstColor(c, fallback lipgloss.Color) lipgloss.Color {
+	if c != "" {
+		return c
+	}
+	return fallback
+}
+
+// textRole resolves an optional role color to text that is readable on the
+// theme background: the palette's own color, lightness-adjusted by Legible when
+// it falls under minimum contrast.
+func (t Theme) textRole(c, fallback lipgloss.Color, minimum float64) lipgloss.Color {
+	return Legible(firstColor(c, fallback), t.Bg, minimum)
+}
+
+// SuccessColor is Success (Unread when unset), readable on Bg at 4.5:1.
+func (t Theme) SuccessColor() lipgloss.Color { return t.textRole(t.Success, t.Unread, 4.5) }
+
+// WarningColor is Warning (Error when unset), readable on Bg at 4.5:1.
+func (t Theme) WarningColor() lipgloss.Color { return t.textRole(t.Warning, t.Error, 4.5) }
+
+// ErrorColor is Error readable on Bg at 4.5:1.
+func (t Theme) ErrorColor() lipgloss.Color { return t.textRole(t.Error, t.Fg, 4.5) }
+
+// LinkColor is Link (BorderFocus when unset), readable on Bg at 4.5:1.
+func (t Theme) LinkColor() lipgloss.Color { return t.textRole(t.Link, t.BorderFocus, 4.5) }
+
+// QuoteColor is Quote (Dimmed when unset), readable on Bg at 4.5:1.
+func (t Theme) QuoteColor() lipgloss.Color { return t.textRole(t.Quote, t.Dimmed, 4.5) }
+
+// TagColor is Tag (BorderFocus when unset), readable on Bg at 4.5:1.
+func (t Theme) TagColor() lipgloss.Color { return t.textRole(t.Tag, t.BorderFocus, 4.5) }
+
+// UnreadColor is Unread readable on Bg at 4.5:1.
+func (t Theme) UnreadColor() lipgloss.Color { return t.textRole(t.Unread, t.Fg, 4.5) }
+
+// MatchColor is Match (BorderFocus when unset), visible on Bg at 3:1.
+func (t Theme) MatchColor() lipgloss.Color { return t.textRole(t.Match, t.BorderFocus, 3) }
+
+// CursorColor is Cursor (Fg when unset), visible on Bg at 3:1.
+func (t Theme) CursorColor() lipgloss.Color { return t.textRole(t.Cursor, t.Fg, 3) }
+
 // UsesASCII reports whether this theme uses plain terminal presentation.
 func (t Theme) UsesASCII() bool { return t.Name == ThemeNameVT52 }
 
@@ -62,150 +134,4 @@ func ThemeByName(name string) (Theme, bool) {
 		}
 	}
 	return BuiltinThemes[0], false
-}
-
-// BuiltinThemes contains the palettes supplied by the library.
-var BuiltinThemes = []Theme{
-	CatppuccinMocha, CatppuccinLatte, CatppuccinFrappe, CatppuccinMacchiato,
-	Nord, Dracula, GruvboxDark, GruvboxLight, TokyoNight, TokyoNightDay,
-	RosePine, RosePineMoon, RosePineDawn, OneDark, MagentaGeode, CoralSunset,
-	LavenderFieldsForever, VT100, VT52,
-}
-
-// CatppuccinMocha is the Catppuccin Mocha dark palette.
-var CatppuccinMocha = Theme{
-	Name: "catppuccin-mocha", Bg: "#1e1e2e", Fg: "#cdd6f4", Border: "#6c7086",
-	BorderFocus: "#89b4fa", Selected: "#89b4fa", Unread: "#a6e3a1", Dimmed: "#585b70",
-	StatusBar: "#313244", StatusFg: "#cdd6f4", Error: "#f38ba8", Overlay: "#313244",
-	OverlayBorder: "#89b4fa",
-}
-
-// CatppuccinLatte is the Catppuccin Latte light palette.
-var CatppuccinLatte = Theme{
-	Name: "catppuccin-latte", Bg: "#eff1f5", Fg: "#4c4f69", Border: "#9ca0b0",
-	BorderFocus: "#1e66f5", Selected: "#1e66f5", Unread: "#40a02b", Dimmed: "#8c8fa1",
-	StatusBar: "#e6e9ef", StatusFg: "#4c4f69", Error: "#d20f39", Overlay: "#e6e9ef",
-	OverlayBorder: "#1e66f5",
-}
-
-// CatppuccinFrappe is the Catppuccin Frappe dark palette.
-var CatppuccinFrappe = Theme{
-	Name: "catppuccin-frappe", Bg: "#303446", Fg: "#c6d0f5", Border: "#626880",
-	BorderFocus: "#8caaee", Selected: "#8caaee", Unread: "#a6d189", Dimmed: "#51576d",
-	StatusBar: "#292c3c", StatusFg: "#c6d0f5", Error: "#e78284", Overlay: "#292c3c",
-	OverlayBorder: "#8caaee",
-}
-
-// CatppuccinMacchiato is the Catppuccin Macchiato dark palette.
-var CatppuccinMacchiato = Theme{
-	Name: "catppuccin-macchiato", Bg: "#24273a", Fg: "#cad3f5", Border: "#5b6078",
-	BorderFocus: "#8aadf4", Selected: "#8aadf4", Unread: "#a6da95", Dimmed: "#494d64",
-	StatusBar: "#1e2030", StatusFg: "#cad3f5", Error: "#ed8796", Overlay: "#1e2030",
-	OverlayBorder: "#8aadf4",
-}
-
-// Nord is the Nord palette.
-var Nord = Theme{
-	Name: "nord", Bg: "#2e3440", Fg: "#eceff4", Border: "#4c566a", BorderFocus: "#88c0d0",
-	Selected: "#88c0d0", Unread: "#a3be8c", Dimmed: "#4c566a", StatusBar: "#3b4252",
-	StatusFg: "#d8dee9", Error: "#bf616a", Overlay: "#3b4252", OverlayBorder: "#88c0d0",
-}
-
-// Dracula is the Dracula palette.
-var Dracula = Theme{
-	Name: "dracula", Bg: "#282a36", Fg: "#f8f8f2", Border: "#6272a4", BorderFocus: "#bd93f9",
-	Selected: "#bd93f9", Unread: "#50fa7b", Dimmed: "#6272a4", StatusBar: "#21222c",
-	StatusFg: "#f8f8f2", Error: "#ff5555", Overlay: "#21222c", OverlayBorder: "#bd93f9",
-}
-
-// GruvboxDark is the dark Gruvbox palette.
-var GruvboxDark = Theme{
-	Name: "gruvbox-dark", Bg: "#282828", Fg: "#ebdbb2", Border: "#504945", BorderFocus: "#83a598",
-	Selected: "#83a598", Unread: "#b8bb26", Dimmed: "#504945", StatusBar: "#1d2021",
-	StatusFg: "#ebdbb2", Error: "#fb4934", Overlay: "#32302f", OverlayBorder: "#83a598",
-}
-
-// GruvboxLight is the light Gruvbox palette.
-var GruvboxLight = Theme{
-	Name: "gruvbox-light", Bg: "#fbf1c7", Fg: "#3c3836", Border: "#bdae93", BorderFocus: "#076678",
-	Selected: "#076678", Unread: "#79740e", Dimmed: "#bdae93", StatusBar: "#f2e5bc",
-	StatusFg: "#3c3836", Error: "#cc241d", Overlay: "#f2e5bc", OverlayBorder: "#076678",
-}
-
-// TokyoNight is the dark Tokyo Night palette.
-var TokyoNight = Theme{
-	Name: "tokyo-night", Bg: "#1a1b26", Fg: "#c0caf5", Border: "#414868", BorderFocus: "#7aa2f7",
-	Selected: "#7aa2f7", Unread: "#9ece6a", Dimmed: "#414868", StatusBar: "#16161e",
-	StatusFg: "#a9b1d6", Error: "#f7768e", Overlay: "#16161e", OverlayBorder: "#7aa2f7",
-}
-
-// TokyoNightDay is the light Tokyo Night palette.
-var TokyoNightDay = Theme{
-	Name: "tokyo-night-day", Bg: "#e1e2e7", Fg: "#3760bf", Border: "#a8aecb", BorderFocus: "#2e7de9",
-	Selected: "#2e7de9", Unread: "#587539", Dimmed: "#a8aecb", StatusBar: "#d0d5e3",
-	StatusFg: "#3760bf", Error: "#f52a65", Overlay: "#d0d5e3", OverlayBorder: "#2e7de9",
-}
-
-// RosePine is the dark Rose Pine palette.
-var RosePine = Theme{
-	Name: "rose-pine", Bg: "#191724", Fg: "#e0def4", Border: "#403d52", BorderFocus: "#c4a7e7",
-	Selected: "#c4a7e7", Unread: "#9ccfd8", Dimmed: "#403d52", StatusBar: "#1f1d2e",
-	StatusFg: "#e0def4", Error: "#eb6f92", Overlay: "#1f1d2e", OverlayBorder: "#c4a7e7",
-}
-
-// RosePineMoon is the Rose Pine Moon palette.
-var RosePineMoon = Theme{
-	Name: "rose-pine-moon", Bg: "#232136", Fg: "#e0def4", Border: "#44415a", BorderFocus: "#c4a7e7",
-	Selected: "#c4a7e7", Unread: "#9ccfd8", Dimmed: "#44415a", StatusBar: "#2a2837",
-	StatusFg: "#e0def4", Error: "#eb6f92", Overlay: "#2a2837", OverlayBorder: "#c4a7e7",
-}
-
-// RosePineDawn is the light Rose Pine Dawn palette.
-var RosePineDawn = Theme{
-	Name: "rose-pine-dawn", Bg: "#faf4ed", Fg: "#575279", Border: "#d7d2be", BorderFocus: "#907aa9",
-	Selected: "#907aa9", Unread: "#286983", Dimmed: "#d7d2be", StatusBar: "#fffaf3",
-	StatusFg: "#575279", Error: "#b4637a", Overlay: "#fffaf3", OverlayBorder: "#907aa9",
-}
-
-// OneDark is the One Dark palette.
-var OneDark = Theme{
-	Name: "one-dark", Bg: "#282c34", Fg: "#abb2bf", Border: "#3e4451", BorderFocus: "#61afef",
-	Selected: "#61afef", Unread: "#98c379", Dimmed: "#3e4451", StatusBar: "#21252b",
-	StatusFg: "#abb2bf", Error: "#e06c75", Overlay: "#21252b", OverlayBorder: "#61afef",
-}
-
-// MagentaGeode is a saturated purple and pink palette.
-var MagentaGeode = Theme{
-	Name: "magenta-geode", Bg: "#47003c", Fg: "#f3b0dc", Border: "#aa4d84", BorderFocus: "#c83fa9",
-	Selected: "#c83fa9", Unread: "#f3b0dc", Dimmed: "#77176e", StatusBar: "#77176e",
-	StatusFg: "#f3b0dc", Error: "#ff7062", Overlay: "#77176e", OverlayBorder: "#c83fa9",
-}
-
-// CoralSunset is a muted purple and coral palette.
-var CoralSunset = Theme{
-	Name: "coral-sunset", Bg: "#444154", Fg: "#fec9c1", Border: "#fc8b79", BorderFocus: "#ff7062",
-	Selected: "#ff7062", Unread: "#fec9c1", Dimmed: "#7a637f", StatusBar: "#7a637f",
-	StatusFg: "#fec9c1", Error: "#ff7062", Overlay: "#7a637f", OverlayBorder: "#ff7062",
-}
-
-// LavenderFieldsForever is a deep indigo and lavender palette.
-var LavenderFieldsForever = Theme{
-	Name: "lavender-fields-forever", Bg: "#382d72", Fg: "#e5ccf4", Border: "#b7c2c6",
-	BorderFocus: "#a080e1", Selected: "#a080e1", Unread: "#e5ccf4", Dimmed: "#5c509c",
-	StatusBar: "#5c509c", StatusFg: "#e5ccf4", Error: "#ff7062", Overlay: "#5c509c",
-	OverlayBorder: "#a080e1",
-}
-
-// VT100 is a green phosphor terminal palette.
-var VT100 = Theme{
-	Name: ThemeNameVT100, Bg: "#000000", Fg: "#33ff33", Border: "#145214", BorderFocus: "#00ff00",
-	Selected: "#00ff00", Unread: "#66ff66", Dimmed: "#3dcc3d", StatusBar: "#001a00",
-	StatusFg: "#33ff33", Error: "#ff6b6b", Overlay: "#001200", OverlayBorder: "#00ff00",
-}
-
-// VT52 is an amber terminal palette with ASCII presentation.
-var VT52 = Theme{
-	Name: ThemeNameVT52, Bg: "#000000", Fg: "#ffcc66", Border: "#6b4e14", BorderFocus: "#ffb020",
-	Selected: "#ffb020", Unread: "#ffe6a8", Dimmed: "#a67c2e", StatusBar: "#1a1206",
-	StatusFg: "#ffcc66", Error: "#ff6666", Overlay: "#140e04", OverlayBorder: "#ffb020",
 }

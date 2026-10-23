@@ -1,7 +1,7 @@
 package tideui
 
 import (
-	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -107,13 +107,17 @@ func TestRenderSoftRowHighlightsSelectedRowBackground(t *testing.T) {
 	}
 }
 
+// backgroundSGR returns the SGR parameters lipgloss emits for c as a
+// background, so the expectation uses the same color conversion as the code
+// under test (a hand-rolled hex conversion can differ by one in a channel).
 func backgroundSGR(t *testing.T, c lipgloss.Color) string {
 	t.Helper()
-	r, g, b, ok := hexToRGB(c)
-	if !ok {
-		t.Fatalf("hexToRGB(%q) failed", c)
+	rendered := lipgloss.NewStyle().Background(c).Render("x")
+	match := regexp.MustCompile(`48;2;\d+;\d+;\d+`).FindString(rendered)
+	if match == "" {
+		t.Fatalf("no truecolor background SGR in %q", rendered)
 	}
-	return fmt.Sprintf("48;2;%d;%d;%d", int(r*255+0.5), int(g*255+0.5), int(b*255+0.5))
+	return match
 }
 
 func TestRenderSoftBodyDoesNotWrapStyledLongRows(t *testing.T) {

@@ -95,6 +95,29 @@ func readableText(preferred, bg lipgloss.Color, minimum float64) lipgloss.Color 
 	return contrastFg(bg)
 }
 
+// Legible returns c unchanged when it already reaches minimum contrast against
+// bg, and otherwise moves its lightness (keeping hue and saturation) away from
+// bg just far enough to reach it. Palettes copied from editor themes often use
+// accent colors that are fine for syntax but under 4.5:1 as text; this keeps
+// their identity while making text roles readable.
+func Legible(c, bg lipgloss.Color, minimum float64) lipgloss.Color {
+	if c == "" || contrastRatio(c, bg) >= minimum {
+		return c
+	}
+	step := 0.02
+	if !isDark(bg) {
+		step = -step
+	}
+	cur := c
+	for range 50 {
+		cur = adjustLightness(cur, step)
+		if contrastRatio(cur, bg) >= minimum {
+			return cur
+		}
+	}
+	return contrastFg(bg)
+}
+
 func modalSurface(t Theme) lipgloss.Color {
 	if t.Overlay != "" {
 		return t.Overlay

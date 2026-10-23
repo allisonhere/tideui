@@ -157,7 +157,7 @@ func (p ThemePicker) Modal(renderer Renderer, width, height int) Overlay {
 			style = style.Copy().Background(accent).
 				Foreground(readableText(renderer.Styles.Theme.Fg, accent, 4.5)).Bold(true)
 		}
-		row := alignRow(prefix, p.themes[index].Name, "", innerWidth)
+		row := alignRow(prefix, p.themes[index].Label(), "", innerWidth)
 		rows = append(rows, style.Width(innerWidth).Render(row))
 	}
 
@@ -187,7 +187,7 @@ func (p ThemePicker) SoftModal(renderer Renderer, width, height int, prefix stri
 	rows := make([]string, 0, last-first+1)
 	for index := first; index < last; index++ {
 		rows = append(rows, renderer.RenderSoftRow(SoftRow{
-			Text:     p.themes[index].Name,
+			Text:     p.themes[index].Label(),
 			Selected: index == p.cursor,
 		}, innerWidth))
 	}

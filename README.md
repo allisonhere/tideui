@@ -111,6 +111,21 @@ theme, ok := tideui.ThemeByName("nord")   // false if unknown
 for _, t := range tideui.BuiltinThemes { /* ... */ }
 ```
 
+`BuiltinThemes` holds 52 themes in 24 families (Catppuccin, Tokyo Night, Rosé
+Pine, Gruvbox, Solarized, Nightfox, Kanagawa, Ayu, GitHub, Nord, Dracula, One
+Dark Pro and more), grouped so that variants of a family are adjacent. The
+palettes are copied from each upstream project's source, with their licenses,
+and are defined in `themes_collection.go`. `Theme.Family` and `Theme.Variant`
+label them for pickers, and `Theme.Label()` joins the two.
+
+Besides the twelve core colors, a theme can carry optional `Success`,
+`Warning`, `Link`, `Quote`, `Match`, `Tag` and `Cursor` roles. The
+`SuccessColor()`, `WarningColor()`, `LinkColor()`, `QuoteColor()`, `TagColor()`,
+`MatchColor()` and `CursorColor()` accessors return the role (or a color the
+theme already has when it is unset), lightness-adjusted by `Legible` to 4.5:1
+on the background (3:1 for match and cursor). Palette values are never edited;
+only the accessors adjust.
+
 Override individual colors without forking a palette:
 
 ```go

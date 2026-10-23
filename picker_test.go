@@ -70,16 +70,16 @@ func TestThemePickerModalUsesThemeCursorAndKeepsSelectionVisible(t *testing.T) {
 	renderer := NewRenderer(VT52, StyleOptions{Density: Compact})
 	modal := picker.Modal(renderer, 30, 6)
 	plain := ansi.Strip(renderer.renderOverlay(modal, 80))
-	if !strings.Contains(plain, "> "+VT52.Name) {
+	if !strings.Contains(plain, "> "+VT52.Label()) {
 		t.Fatalf("ASCII modal does not include selected cursor and theme:\n%s", plain)
 	}
-	if strings.Contains(plain, CatppuccinMocha.Name) {
+	if strings.Contains(plain, CatppuccinMocha.Label()) {
 		t.Fatalf("small modal should scroll past the first theme:\n%s", plain)
 	}
 
 	renderer = NewRenderer(CatppuccinMocha, StyleOptions{Density: Compact})
 	box := renderer.renderOverlay(picker.Modal(renderer, 34, 24), 80)
-	if !strings.Contains(ansi.Strip(box), "▶ "+VT52.Name) {
+	if !strings.Contains(ansi.Strip(box), "▶ "+VT52.Label()) {
 		t.Fatalf("Unicode modal does not include selected cursor and theme:\n%s", ansi.Strip(box))
 	}
 	for i, line := range strings.Split(box, "\n") {
