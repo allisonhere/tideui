@@ -111,7 +111,7 @@ theme, ok := tideui.ThemeByName("nord")   // false if unknown
 for _, t := range tideui.BuiltinThemes { /* ... */ }
 ```
 
-`BuiltinThemes` holds 52 themes in 24 families (Catppuccin, Tokyo Night, Rosé
+`BuiltinThemes` holds 51 themes in 23 families (Catppuccin, Tokyo Night, Rosé
 Pine, Gruvbox, Solarized, Nightfox, Kanagawa, Ayu, GitHub, Nord, Dracula, One
 Dark Pro and more), grouped so that variants of a family are adjacent. The
 palettes are copied from each upstream project's source, with their licenses,
@@ -229,8 +229,35 @@ cancel.
 Use the soft-panel variant for the newer Tide-family modal style:
 
 ```go
-overlay := picker.SoftModal(renderer, 42, m.height, "tidedock")
+overlay := picker.SoftModal(renderer, 46, m.height, "tidedock")
 ```
+
+The soft-panel picker is the full one: themes are grouped under their family
+(`Theme.Family`), with a palette swatch beside each variant, the confirmed theme
+marked `●`, and a sample of the highlighted theme (selected row, text, link,
+quote, status and tag colors) below the list. Pass the modal's whole height; the
+list scrolls to keep the cursor in view, and the sample is dropped when there is
+no room for it.
+
+Press `/` to search. Each word must match a theme's family, variant, name, or
+`light`/`dark`, so `rose dawn` finds Rosé Pine Dawn and `light` lists every light
+theme. While the search has focus, `picker.Filtering()` is true and typed
+letters go to the search instead of navigation; `enter` ends the search and
+keeps the filter, `esc` clears it (a second `esc` leaves the search). Up and
+down step through the matching themes only, and `enter` will not confirm a theme
+the filter hides. `picker.Filter()` returns the search text. `Open` clears it.
+
+A theme whose colors are only known at runtime can opt out of the swatch:
+
+```go
+picker := tideui.NewThemePicker(tideui.ThemePickerOptions{
+    Themes:     themes,
+    HideSwatch: func(t tideui.Theme) bool { return t.Name == "match-desktop" },
+})
+```
+
+`ThemeSwatch(theme, plain)` draws the same five-cell swatch for use elsewhere.
+The plain `Modal` keeps its flat list, and honours the search too.
 
 ## Soft panels
 
