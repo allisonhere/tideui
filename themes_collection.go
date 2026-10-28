@@ -179,12 +179,6 @@ var (
 	Synthwave84 = collectionTheme("synthwave-84", "SynthWave '84", "SynthWave '84", palette{bg: "262335", fg: "ffffff", border: "495495", accent: "ff7edb", surface: "241b2f", muted: "848bbd", red: "fe4450", green: "72f1b8", yellow: "fede5d", link: "36f9f6", quote: "03edf9", tag: "b893ce", match: "f97e72", cursor: "ffffff"})
 )
 
-// Shades of Purple — https://github.com/ahmadawais/shades-of-purple-vscode (MIT).
-var (
-	// ShadesOfPurple is the Shades of Purple Shades of Purple palette.
-	ShadesOfPurple = collectionTheme("shades-of-purple", "Shades of Purple", "Shades of Purple", palette{bg: "2d2b55", fg: "ffffff", border: "1e1e3f", accent: "b362ff", surface: "222244", muted: "a599e9", red: "ec3a37", green: "3ad900", yellow: "fad000", link: "b362ff", quote: "80fcff", tag: "ff2c70", match: "ff7300", cursor: "fad000"})
-)
-
 // Oxocarbon — https://github.com/nyoom-engineering/oxocarbon.nvim (MIT).
 var (
 	// OxocarbonDark is the Oxocarbon Dark palette.
@@ -297,7 +291,6 @@ var BuiltinThemes = []Theme{
 	NightOwl,
 	NightOwlLight,
 	Synthwave84,
-	ShadesOfPurple,
 	OxocarbonDark,
 	OxocarbonLight,
 	Cyberdream,

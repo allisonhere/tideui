@@ -111,7 +111,7 @@ theme, ok := tideui.ThemeByName("nord")   // false if unknown
 for _, t := range tideui.BuiltinThemes { /* ... */ }
 ```
 
-`BuiltinThemes` holds 52 themes in 24 families (Catppuccin, Tokyo Night, Rosé
+`BuiltinThemes` holds 51 themes in 23 families (Catppuccin, Tokyo Night, Rosé
 Pine, Gruvbox, Solarized, Nightfox, Kanagawa, Ayu, GitHub, Nord, Dracula, One
 Dark Pro and more), grouped so that variants of a family are adjacent. The
 palettes are copied from each upstream project's source, with their licenses,
