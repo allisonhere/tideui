@@ -287,6 +287,24 @@ to match the theme, fetch the sequences and emit them from your program:
 set, reset := tideui.TerminalBackgroundSequences(theme)
 ```
 
+The background these set is one color step away from `theme.Bg`, not the exact
+color. Terminals such as kitty apply their background opacity to every cell
+whose color equals the default background, and an application paints every cell
+in `theme.Bg`, so the exact color would make the whole UI see-through. The
+nudge is invisible but keeps every cell opaque. `TerminalDefaultBg(bg, false)`
+returns that color, for applications that re-send OSC 11 when the theme changes.
+
+To let the terminal's opacity show through on purpose, use the exact color and
+redraw theme-background cells as the default background:
+
+```go
+set, reset := tideui.TerminalBackgroundSequencesFor(theme, true)
+// in View, after the final full-screen render:
+view = tideui.TransparentBackground(view, theme.Bg)
+```
+
+Selected rows, overlays and other surfaces keep their colors and stay solid.
+
 ## Design
 
 Applications retain ownership of their model, commands, key routing,

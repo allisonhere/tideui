@@ -677,7 +677,7 @@ func TestRenderPaneScrollOffsetOutOfRangeDoesNotPanic(t *testing.T) {
 
 func TestTerminalBackgroundSequenceDoesNotWriteTerminal(t *testing.T) {
 	set, reset := TerminalBackgroundSequences(CatppuccinMocha)
-	if !strings.Contains(set, string(CatppuccinMocha.Bg)) || reset == "" {
+	if !strings.Contains(set, string(TerminalDefaultBg(CatppuccinMocha.Bg, false))) || reset == "" {
 		t.Fatalf("unexpected OSC strings: set=%q reset=%q", set, reset)
 	}
 }
